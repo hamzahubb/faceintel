@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Cameras — Infigo FaceIntel</title>
+    <meta name="description" content="Watch live IP camera feeds configured in the surveillance system.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-sidebar: #4f46e5;
+            --bg-sidebar-hover: #4338ca;
+            --bg-sidebar-active: #3730a3;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --accent: #4f46e5;
+            --accent-light: #e0e7ff;
+            --success: #22c55e;
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --danger-text: #991b1b;
+            --grey-bg: #f1f5f9;
+            --grey-text: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* ── Left Sidebar Navigation ── */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-logo {
+            padding: 24px 32px;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            transition: background 0.15s ease;
+        }
+
+        .nav-item:hover { background: var(--bg-sidebar-hover); color: #ffffff; }
+        .nav-item.active { background: var(--bg-sidebar-active); color: #ffffff; font-weight: 600; }
+        .nav-item-icon { font-size: 18px; width: 22px; text-align: center; }
+
+        .sidebar-footer {
+            padding: 20px 32px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* ── Main Panel ── */
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--card-border);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .header-note {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .content-container {
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .page-title {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+
+        /* ── Camera Grid ── */
+        .camera-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 24px;
+        }
+
+        .camera-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        }
+
+        .camera-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+        }
+
+        .camera-name {
+            font-size: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .camera-badge {
+            font-size: 12px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+
+        .badge-live { background: var(--success-bg); color: var(--success-text); }
+        .badge-off { background: var(--grey-bg); color: var(--grey-text); }
+
+        .camera-frame {
+            position: relative;
+            background: #0f172a;
+            aspect-ratio: 16 / 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .camera-placeholder {
+            color: var(--grey-text);
+            font-size: 14px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .empty-state {
+            background: var(--card-bg);
+            border: 1px dashed var(--card-border);
+            border-radius: 16px;
+            padding: 48px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        /* ── Detected Faces Panel ── */
+        .faces-panel {
+            border-top: 1px solid var(--card-border);
+            padding: 14px 18px;
+        }
+
+        .faces-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .faces-panel-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .scan-pulse {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--success-text);
+            background: var(--success-bg);
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            animation: pulse-opacity 2s infinite ease-in-out;
+            transition: opacity 0.3s;
+        }
+
+        @keyframes pulse-opacity {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
+        .scan-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-family: var(--font-main);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .scan-btn:hover { background: var(--bg-sidebar-hover); }
+        .scan-btn:disabled { background: var(--grey-text); cursor: wait; }
+
+        .faces-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .face-chip {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            width: 110px;
+            background: var(--grey-bg);
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .face-chip img {
+            width: 72px;
+            height: 72px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .face-chip.registered { outline: 2px solid var(--success); }
+        .face-chip.stranger { outline: 2px solid var(--danger); }
+        .face-chip.possible { outline: 2px solid #f59e0b; }
+
+        .face-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            word-break: break-word;
+        }
+        .face-label.ok { color: var(--success-text); }
+        .face-label.bad { color: var(--danger-text); }
+        .face-label.maybe { color: #92400e; }
+
+        .face-sub { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); }
+
+        .register-btn {
+            background: var(--danger);
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            padding: 5px 12px;
+            font-family: var(--font-main);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .register-btn:hover { filter: brightness(0.9); }
+
+        .no-faces {
+            font-size: 13px;
+            color: var(--grey-text);
+        }
+
+        /* ── Register Modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 28px;
+            width: 380px;
+            max-width: calc(100vw - 40px);
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+        }
+
+        .modal h3 { font-size: 18px; margin-bottom: 4px; }
+        .modal .modal-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+
+        .modal .face-preview {
+            width: 84px;
+            height: 84px;
+            object-fit: cover;
+            border-radius: 12px;
+            display: block;
+            margin-bottom: 16px;
+        }
+
+        .modal label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            margin-bottom: 14px;
+        }
+        .modal input:focus { outline: 2px solid var(--accent-light); border-color: var(--accent); }
+
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        .btn-secondary {
+            background: var(--grey-bg);
+            color: var(--text-primary);
+            border: none;
+            border-radius: 8px;
+            padding: 9px 16px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 9px 16px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-primary:disabled { background: var(--grey-text); cursor: wait; }
+
+        .modal-status { font-size: 13px; margin-bottom: 12px; display: none; padding: 8px 12px; border-radius: 8px; }
+        .modal-status.err { display: block; background: var(--danger-bg); color: var(--danger-text); }
+        .modal-status.ok { display: block; background: var(--success-bg); color: var(--success-text); }
+
+        /* ── Mobile Camera Connect Panel ── */
+        .phone-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 28px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        }
+
+        .phone-panel-icon { font-size: 28px; }
+
+        .phone-panel-info { flex: 1; min-width: 220px; }
+        .phone-panel-title { font-size: 15px; font-weight: 700; }
+        .phone-panel-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+        .phone-panel input {
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 9px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            width: 220px;
+        }
+        .phone-panel input:focus { outline: 2px solid var(--accent-light); border-color: var(--accent); }
+
+        .phone-connect-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 9px;
+            padding: 10px 18px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .phone-connect-btn:hover { background: var(--bg-sidebar-hover); }
+        .phone-connect-btn:disabled { background: var(--grey-text); cursor: wait; }
+
+        .phone-status { width: 100%; font-size: 13px; padding: 8px 12px; border-radius: 8px; display: none; }
+        .phone-status.err { display: block; background: var(--danger-bg); color: var(--danger-text); }
+        .phone-status.ok { display: block; background: var(--success-bg); color: var(--success-text); }
+
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; }
+            .sidebar-nav { flex-direction: row; padding: 12px 16px; overflow-x: auto; gap: 12px; }
+            .nav-item { padding: 8px 16px; font-size: 13px; }
+            .sidebar-footer { display: none; }
+            .camera-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Left Sidebar Navigation ── -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <span>🧠</span>
+            <span>Infigo FaceIntel</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="nav-item-icon">🎭</span>
+                <span>Detection</span>
+            </a>
+            <a href="/register" class="nav-item">
+                <span class="nav-item-icon">👤</span>
+                <span>Register</span>
+            </a>
+            <a href="/attendance" class="nav-item">
+                <span class="nav-item-icon">📋</span>
+                <span>Attendance</span>
+            </a>
+            <a href="/video_detection" class="nav-item">
+                <span class="nav-item-icon">📹</span>
+                <span>Video Detection</span>
+            </a>
+            <a href="/live_cameras" class="nav-item active">
+                <span class="nav-item-icon">🎥</span>
+                <span>Live Cameras</span>
+            </a>
+            <a href="/logs" class="nav-item">
+                <span class="nav-item-icon">📊</span>
+                <span>Logs</span>
+            </a>
+        </div>
+        <div class="sidebar-footer">
+            <span>👤</span>
+            <span>FaceIntel System v2.0</span>
+        </div>
+        <a href="#" onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>window.location.href='/login');return false;" class="sidebar-footer" style="margin-top:0;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);cursor:pointer;text-decoration:none;color:rgba(255,255,255,0.7);transition:color 0.2s;" onmouseover="this.style.color='#fca5a5'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+            <span>🚪</span>
+            <span>Logout</span>
+        </a>
+    </div>
+
+    <!-- ── Main Panel ── -->
+    <div class="main-panel">
+        <header>
+            <div class="header-note">Feeds come from <span style="font-family: var(--font-mono);">camera_config.json</span></div>
+        </header>
+
+        <div class="content-container">
+            <h2 class="page-title">Live IP Cameras</h2>
+            <p class="page-subtitle">Streaming from the configured camera sources. Scan a feed to recognize people — strangers can be registered right from the camera.</p>
+
+            <!-- ── Mobile Camera Connect ── -->
+            <div class="phone-panel">
+                <span class="phone-panel-icon">📱</span>
+                <div class="phone-panel-info">
+                    <div class="phone-panel-title">Connect Your Mobile Camera</div>
+                    <div class="phone-panel-sub">Install the "IP Webcam" app on your phone → Start Server → enter the phone's IP below. (Phone and PC must be on the same WiFi)</div>
+                </div>
+                <input type="text" id="phoneIp" placeholder="e.g. 192.168.1.5:8080">
+                <button class="phone-connect-btn" id="phoneConnectBtn" onclick="connectPhone()">🔗 Connect</button>
+                <div class="phone-status" id="phoneStatus"></div>
+            </div>
+
+            <div class="camera-grid" id="cameraGrid"></div>
+            <div class="empty-state" id="emptyState" style="display: none;">
+                No cameras configured. Add cameras to <b>camera_config.json</b> and refresh this page.
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Register Stranger Modal ── -->
+    <div class="modal-overlay" id="registerModal">
+        <div class="modal">
+            <h3>Register Person from Camera</h3>
+            <p class="modal-sub">The system will capture multiple face images of this person from the live feed.</p>
+            <img class="face-preview" id="modalFace" src="" alt="Face">
+            <div class="modal-status" id="modalStatus"></div>
+            <label for="regEmpId">Employee ID</label>
+            <input type="text" id="regEmpId" placeholder="e.g. EMP005">
+            <label for="regName">Full Name</label>
+            <input type="text" id="regName" placeholder="e.g. Ali Khan">
+            <label for="regDept">Department (optional)</label>
+            <input type="text" id="regDept" placeholder="e.g. Engineering">
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" id="regSubmit" onclick="submitRegistration()">Register</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pendingFace = null;   // { cameraId, crop_b64, embedding }
+
+        async function loadCameras() {
+            const grid = document.getElementById("cameraGrid");
+            const empty = document.getElementById("emptyState");
+            try {
+                const res = await fetch("/api/cameras");
+                const data = await res.json();
+                const cameras = data.cameras || [];
+
+                if (cameras.length === 0) {
+                    empty.style.display = "block";
+                    return;
+                }
+
+                for (const cam of cameras) {
+                    const card = document.createElement("div");
+                    card.className = "camera-card";
+
+                    const badge = cam.enabled
+                        ? '<span class="camera-badge badge-live">● LIVE</span>'
+                        : '<span class="camera-badge badge-off">OFF</span>';
+
+                    const frame = cam.enabled
+                        ? `<img src="/camera_feed/${encodeURIComponent(cam.id)}" alt="${cam.name}"
+                                onerror="this.outerHTML='<div class=\\'camera-placeholder\\'>⚠️ Stream unavailable — camera did not respond.</div>'">`
+                        : '<div class="camera-placeholder">Camera disabled in configuration.</div>';
+
+                    const facesPanel = cam.enabled ? `
+                        <div class="faces-panel">
+                            <div class="faces-panel-header">
+                                <span class="faces-panel-title">Detected Persons</span>
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span class="scan-pulse" id="scan-indicator-${cam.id}">● Auto Scanning</span>
+                                    <label class="auto-scan-toggle" style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-secondary);">
+                                        <input type="checkbox" id="toggle-${cam.id}" checked onchange="handleAutoScanToggle('${cam.id}')" style="cursor: pointer; accent-color: var(--accent); width: 15px; height: 15px;">
+                                        Auto-Scan
+                                    </label>
+                                    <button class="scan-btn" id="scan-${cam.id}" onclick="scanFaces('${cam.id}')" style="display: none;">🔍 Scan Faces</button>
+                                </div>
+                            </div>
+                            <div class="faces-list" id="faces-${cam.id}">
+                                <span class="no-faces">Waiting for auto-scan...</span>
+                            </div>
+                        </div>` : "";
+
+                    card.innerHTML = `
+                        <div class="camera-card-header">
+                            <div class="camera-name"><span>🎥</span> ${cam.name}</div>
+                            ${badge}
+                        </div>
+                        <div class="camera-frame">${frame}</div>
+                        ${facesPanel}
+                    `;
+                    grid.appendChild(card);
+                    if (cam.enabled) {
+                        startAutoScan(cam.id);
+                    }
+                }
+            } catch (err) {
+                empty.style.display = "block";
+                empty.textContent = "Failed to load camera list: " + err.message;
+            }
+        }
+
+        const autoScanStates = {};
+
+        function handleAutoScanToggle(cameraId) {
+            const toggle = document.getElementById("toggle-" + cameraId);
+            const btn = document.getElementById("scan-" + cameraId);
+            const indicator = document.getElementById("scan-indicator-" + cameraId);
+            const list = document.getElementById("faces-" + cameraId);
+
+            if (toggle && toggle.checked) {
+                if (btn) btn.style.display = "none";
+                if (indicator) indicator.style.display = "inline-flex";
+                list.innerHTML = '<span class="no-faces">Waiting for auto-scan...</span>';
+                startAutoScan(cameraId);
+            } else {
+                if (btn) btn.style.display = "inline-flex";
+                if (indicator) indicator.style.display = "none";
+                list.innerHTML = '<span class="no-faces">Auto-scan paused. Click "Scan Faces" to scan manually.</span>';
+                stopAutoScan(cameraId);
+            }
+        }
+
+        async function startAutoScan(cameraId) {
+            if (autoScanStates[cameraId]) return;
+            autoScanStates[cameraId] = true;
+            autoScanStep(cameraId);
+        }
+
+        function stopAutoScan(cameraId) {
+            autoScanStates[cameraId] = false;
+        }
+
+        async function autoScanStep(cameraId) {
+            if (!autoScanStates[cameraId]) return;
+
+            const toggle = document.getElementById("toggle-" + cameraId);
+            if (!toggle || !toggle.checked) {
+                autoScanStates[cameraId] = false;
+                return;
+            }
+
+            // Do not update UI or scan if user is registering a person from this camera
+            if (pendingFace && pendingFace.cameraId === cameraId) {
+                setTimeout(() => autoScanStep(cameraId), 2000);
+                return;
+            }
+
+            const list = document.getElementById("faces-" + cameraId);
+            const indicator = document.getElementById("scan-indicator-" + cameraId);
+
+            try {
+                // Call with fast=true for optimized low-frame sampling
+                const res = await fetch(`/api/camera_detect/${encodeURIComponent(cameraId)}?fast=true`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Scan failed");
+
+                // Check again to avoid overwriting modal target
+                if (autoScanStates[cameraId] && (!pendingFace || pendingFace.cameraId !== cameraId)) {
+                    list.innerHTML = "";
+                    if (!data.faces || data.faces.length === 0) {
+                        list.innerHTML = '<span class="no-faces">No faces detected.</span>';
+                    } else {
+                        for (const face of data.faces) {
+                            const chip = document.createElement("div");
+
+                            if (face.recognized) {
+                                chip.className = "face-chip registered";
+                                chip.innerHTML = `
+                                    <img src="${face.crop_b64}" alt="face">
+                                    <span class="face-label ok">✔ ${face.full_name}</span>
+                                    <span class="face-sub">${face.employee_id} · ${(face.confidence * 100).toFixed(0)}%</span>
+                                `;
+                            } else {
+                                chip.className = "face-chip stranger";
+                                chip.innerHTML = `
+                                    <img src="${face.crop_b64}" alt="face">
+                                    <span class="face-label bad">Stranger</span>
+                                `;
+                                const btnReg = document.createElement("button");
+                                btnReg.className = "register-btn";
+                                btnReg.textContent = "➕ Register";
+                                btnReg.onclick = () => openModal(cameraId, face);
+                                chip.appendChild(btnReg);
+                            }
+                            list.appendChild(chip);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Auto-scan loop error:", err);
+            } finally {
+                // Schedule next sample in 2 seconds
+                setTimeout(() => autoScanStep(cameraId), 2000);
+            }
+        }
+
+        async function scanFaces(cameraId) {
+            const btn = document.getElementById("scan-" + cameraId);
+            const list = document.getElementById("faces-" + cameraId);
+            btn.disabled = true;
+            btn.textContent = "Scanning…";
+            try {
+                const res = await fetch("/api/camera_detect/" + encodeURIComponent(cameraId));
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Scan failed");
+
+                list.innerHTML = "";
+                if (!data.faces || data.faces.length === 0) {
+                    list.innerHTML = '<span class="no-faces">No faces detected in this frame — try scanning again.</span>';
+                } else {
+                    for (const face of data.faces) {
+                        const chip = document.createElement("div");
+
+                        if (face.recognized) {
+                            chip.className = "face-chip registered";
+                            chip.innerHTML = `
+                                <img src="${face.crop_b64}" alt="face">
+                                <span class="face-label ok">✔ ${face.full_name}</span>
+                                <span class="face-sub">${face.employee_id} · ${(face.confidence * 100).toFixed(0)}%</span>
+                            `;
+                        } else {
+                            chip.className = "face-chip stranger";
+                            chip.innerHTML = `
+                                <img src="${face.crop_b64}" alt="face">
+                                <span class="face-label bad">Stranger</span>
+                            `;
+                            const btnReg = document.createElement("button");
+                            btnReg.className = "register-btn";
+                            btnReg.textContent = "➕ Register";
+                            btnReg.onclick = () => openModal(cameraId, face);
+                            chip.appendChild(btnReg);
+                        }
+                        list.appendChild(chip);
+                    }
+                }
+            } catch (err) {
+                list.innerHTML = '<span class="no-faces">⚠️ ' + err.message + '</span>';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "🔍 Scan Faces";
+            }
+        }
+
+        function openModal(cameraId, face) {
+            pendingFace = { cameraId, crop_b64: face.crop_b64, embedding: face.embedding };
+            document.getElementById("modalFace").src = face.crop_b64;
+            document.getElementById("regEmpId").value = "";
+            document.getElementById("regName").value = "";
+            document.getElementById("regDept").value = "";
+            const status = document.getElementById("modalStatus");
+            status.className = "modal-status";
+            status.textContent = "";
+            document.getElementById("registerModal").classList.add("open");
+        }
+
+        function closeModal() {
+            document.getElementById("registerModal").classList.remove("open");
+            pendingFace = null;
+        }
+
+        async function submitRegistration() {
+            if (!pendingFace) return;
+            const status = document.getElementById("modalStatus");
+            const submit = document.getElementById("regSubmit");
+            const empId = document.getElementById("regEmpId").value.trim();
+            const name = document.getElementById("regName").value.trim();
+            const dept = document.getElementById("regDept").value.trim();
+
+            if (!empId || !name) {
+                status.className = "modal-status err";
+                status.textContent = "Employee ID and Full Name are required.";
+                return;
+            }
+
+            submit.disabled = true;
+            submit.textContent = "Capturing faces…";
+            status.className = "modal-status";
+            status.textContent = "";
+            try {
+                const res = await fetch("/api/camera_register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        camera_id: pendingFace.cameraId,
+                        employee_id: empId,
+                        full_name: name,
+                        department: dept,
+                        target_embedding: pendingFace.embedding,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Registration failed");
+
+                status.className = "modal-status ok";
+                status.textContent = "✅ " + data.message;
+                const camId = pendingFace.cameraId;
+                setTimeout(() => { closeModal(); scanFaces(camId); }, 1600);
+            } catch (err) {
+                status.className = "modal-status err";
+                status.textContent = err.message;
+            } finally {
+                submit.disabled = false;
+                submit.textContent = "Register";
+            }
+        }
+
+        async function connectPhone() {
+            const btn = document.getElementById("phoneConnectBtn");
+            const status = document.getElementById("phoneStatus");
+            const ip = document.getElementById("phoneIp").value.trim();
+
+            if (!ip) {
+                status.className = "phone-status err";
+                status.textContent = "Enter your phone's IP (shown on the IP Webcam app screen).";
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Connecting…";
+            status.className = "phone-status";
+            status.textContent = "";
+            try {
+                const body = ip.startsWith("http") ? { url: ip } : { ip: ip };
+                const res = await fetch("/api/set_phone_camera", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Connection failed");
+
+                status.className = "phone-status ok";
+                status.textContent = "✅ Mobile camera connected! Reloading page…";
+                setTimeout(() => location.reload(), 1200);
+            } catch (err) {
+                status.className = "phone-status err";
+                status.textContent = "⚠️ " + err.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "🔗 Connect";
+            }
+        }
+
+        loadCameras();
+    </script>
+</body>
+</html>

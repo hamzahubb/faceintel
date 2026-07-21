@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Logs — Infigo FaceIntel</title>
+    <meta name="description" content="View and filter all system activity logs for Infigo FaceIntel — registrations, check-ins, check-outs, recognitions, and CCTV detections in one unified dashboard.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-sidebar: #4f46e5;
+            --bg-sidebar-hover: #4338ca;
+            --bg-sidebar-active: #3730a3;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --accent: #4f46e5;
+            --accent-light: #e0e7ff;
+            --accent-glow: rgba(79, 70, 229, 0.2);
+            --success: #22c55e;
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --danger-text: #991b1b;
+            --grey-bg: #f1f5f9;
+            --grey-text: #94a3b8;
+        }
+
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-main);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Sidebar ─────────────────────────────────────── */
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, var(--bg-sidebar) 0%, var(--bg-sidebar-active) 100%);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 100;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 24px rgba(79, 70, 229, 0.10);
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 28px 24px 20px;
+            font-size: 22px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+        }
+
+        .sidebar-logo span:first-child {
+            font-size: 28px;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 18px 12px 12px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            text-decoration: none;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .nav-item.active {
+            background: var(--bg-sidebar-active);
+            color: #ffffff;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.10);
+        }
+
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 28px;
+            background: #fff;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .nav-item-icon {
+            font-size: 18px;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .collapse-btn {
+            border: none;
+            background: none;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-top: auto;
+            outline: none;
+            font-family: var(--font-main);
+        }
+
+        .collapse-btn:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .sidebar-footer {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 24px;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 13px;
+            border-top: 1px solid rgba(255, 255, 255, 0.10);
+        }
+
+        /* ── Sidebar Collapsed ───────────────────────────── */
+        .sidebar.collapsed {
+            width: 80px;
+        }
+
+        .sidebar.collapsed .sidebar-logo span:nth-child(2),
+        .sidebar.collapsed .nav-item span:nth-child(2),
+        .sidebar.collapsed .sidebar-footer span:nth-child(2) {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-logo {
+            justify-content: center;
+            padding: 24px 0;
+        }
+
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+
+        .sidebar.collapsed .sidebar-footer {
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        .sidebar.collapsed .collapse-btn {
+            justify-content: center;
+            padding: 12px 0;
+        }
+
+        .sidebar.collapsed .collapse-text {
+            display: none;
+        }
+
+        .sidebar.collapsed .nav-item.active::before {
+            left: 0;
+        }
+
+        /* ── Main Content ────────────────────────────────── */
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar.collapsed ~ .main-content {
+            margin-left: 80px;
+        }
+
+        /* ── Header ──────────────────────────────────────── */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 36px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            backdrop-filter: blur(12px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent-light);
+            transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+        }
+
+        .user-avatar:hover {
+            border-color: var(--accent);
+            transform: scale(1.08);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ── Page Body ───────────────────────────────────── */
+        .page-body {
+            padding: 32px 36px 48px;
+            flex: 1;
+        }
+
+        .page-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-title-icon {
+            font-size: 30px;
+        }
+
+        .total-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--accent-light);
+            color: var(--accent);
+            font-size: 14px;
+            font-weight: 700;
+            padding: 6px 16px;
+            border-radius: 20px;
+            letter-spacing: -0.2px;
+            transition: transform 0.2s;
+        }
+
+        .total-badge:hover {
+            transform: scale(1.05);
+        }
+
+        /* ── Filter Card ─────────────────────────────────── */
+        .filter-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px 28px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: flex-end;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+            transition: box-shadow 0.3s;
+        }
+
+        .filter-card:hover {
+            box-shadow: 0 4px 20px rgba(79, 70, 229, 0.06);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .filter-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .filter-input,
+        .filter-select {
+            padding: 10px 14px;
+            border: 1.5px solid var(--card-border);
+            border-radius: 10px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            background: var(--bg-main);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        .filter-input:focus,
+        .filter-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .filter-select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 14px;
+            padding-right: 36px;
+        }
+
+        .filter-btn {
+            padding: 10px 28px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+
+        .filter-btn:hover {
+            background: var(--bg-sidebar-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .filter-btn:active {
+            background: var(--bg-sidebar-active);
+            transform: translateY(0);
+        }
+
+        /* ── Table Card ──────────────────────────────────── */
+        .table-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+            transition: box-shadow 0.3s;
+        }
+
+        .table-card:hover {
+            box-shadow: 0 4px 24px rgba(79, 70, 229, 0.06);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        thead th {
+            background: var(--grey-bg);
+            padding: 14px 18px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            border-bottom: 2px solid var(--card-border);
+            white-space: nowrap;
+        }
+
+        thead th:first-child {
+            padding-left: 24px;
+        }
+
+        thead th:last-child {
+            padding-right: 24px;
+        }
+
+        tbody tr {
+            transition: background 0.18s, transform 0.18s;
+        }
+
+        tbody tr:hover {
+            background: rgba(79, 70, 229, 0.025);
+        }
+
+        tbody tr:nth-child(even) {
+            background: rgba(248, 250, 252, 0.6);
+        }
+
+        tbody tr:nth-child(even):hover {
+            background: rgba(79, 70, 229, 0.035);
+        }
+
+        tbody td {
+            padding: 14px 18px;
+            font-size: 14px;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--card-border);
+            vertical-align: middle;
+        }
+
+        tbody td:first-child {
+            padding-left: 24px;
+        }
+
+        tbody td:last-child {
+            padding-right: 24px;
+        }
+
+        .td-datetime {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .td-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .td-photo {
+            width: 70px;
+            text-align: center;
+        }
+
+        .td-photo .log-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid var(--accent-light);
+            display: block;
+            margin: 0 auto;
+            background: var(--grey-bg);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .td-photo .log-avatar-fallback {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--bg-sidebar-hover));
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 15px;
+            margin: 0 auto;
+            box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);
+        }
+
+        .td-id {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .td-details {
+            font-size: 13px;
+            color: var(--text-secondary);
+            max-width: 320px;
+            line-height: 1.5;
+        }
+
+        .td-details span {
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        /* ── Event Badges ────────────────────────────────── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+
+        .badge-registration {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-checkin {
+            background: var(--success-bg);
+            color: var(--success-text);
+        }
+
+        .badge-checkout {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-recognition {
+            background: var(--grey-bg);
+            color: #475569;
+        }
+
+        .badge-cctv {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        /* ── Empty State ─────────────────────────────────── */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 64px 24px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 56px;
+            margin-bottom: 16px;
+            opacity: 0.6;
+            animation: emptyBounce 2s ease-in-out infinite;
+        }
+
+        @keyframes emptyBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .empty-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .empty-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            max-width: 380px;
+        }
+
+        /* ── Loading Spinner ─────────────────────────────── */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 64px 24px;
+        }
+
+        .spinner {
+            width: 42px;
+            height: 42px;
+            border: 4px solid var(--card-border);
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ── Fade-in Animation ───────────────────────────── */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeInUp 0.4s ease-out both;
+        }
+
+        .fade-in-delay-1 { animation-delay: 0.08s; }
+        .fade-in-delay-2 { animation-delay: 0.16s; }
+        .fade-in-delay-3 { animation-delay: 0.24s; }
+
+        /* ── Responsive ──────────────────────────────────── */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 80px;
+            }
+
+            .sidebar .sidebar-logo span:nth-child(2),
+            .sidebar .nav-item span:nth-child(2),
+            .sidebar .sidebar-footer span:nth-child(2),
+            .sidebar .collapse-text {
+                display: none;
+            }
+
+            .sidebar .sidebar-logo {
+                justify-content: center;
+                padding: 24px 0;
+            }
+
+            .sidebar .nav-item {
+                justify-content: center;
+                padding: 12px 0;
+            }
+
+            .sidebar .sidebar-footer {
+                justify-content: center;
+                padding: 20px 0;
+            }
+
+            .sidebar .collapse-btn {
+                justify-content: center;
+                padding: 12px 0;
+            }
+
+            .sidebar .nav-item.active::before {
+                left: 0;
+            }
+
+            .main-content {
+                margin-left: 80px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+                overflow: hidden;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            header {
+                padding: 14px 18px;
+            }
+
+            .page-body {
+                padding: 20px 16px 36px;
+            }
+
+            .filter-card {
+                padding: 18px 18px;
+                gap: 14px;
+            }
+
+            .filter-group {
+                min-width: 140px;
+            }
+
+            .page-title {
+                font-size: 22px;
+            }
+
+            tbody td, thead th {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+
+            tbody td:first-child, thead th:first-child {
+                padding-left: 14px;
+            }
+
+            tbody td:last-child, thead th:last-child {
+                padding-right: 14px;
+            }
+
+            .td-details {
+                max-width: 200px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .page-title-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .filter-card {
+                flex-direction: column;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+
+            .filter-btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ── Sidebar ──────────────────────────────────────── -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <span>🧠</span>
+            <span>Infigo FaceIntel</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="nav-item-icon">🎭</span>
+                <span>Detection</span>
+            </a>
+            <a href="/register" class="nav-item">
+                <span class="nav-item-icon">👤</span>
+                <span>Register</span>
+            </a>
+            <a href="/attendance" class="nav-item">
+                <span class="nav-item-icon">📋</span>
+                <span>Attendance</span>
+            </a>
+            <a href="/video_detection" class="nav-item">
+                <span class="nav-item-icon">📹</span>
+                <span>Video Detection</span>
+            </a>
+            <a href="/live_cameras" class="nav-item">
+                <span class="nav-item-icon">🎥</span>
+                <span>Live Cameras</span>
+            </a>
+            <a href="/logs" class="nav-item active">
+                <span class="nav-item-icon">📊</span>
+                <span>Logs</span>
+            </a>
+            <!-- Collapse Button -->
+            <button class="collapse-btn" id="collapseBtn">
+                <span class="nav-item-icon collapse-icon">◀</span>
+                <span class="collapse-text">Collapse Sidebar</span>
+            </button>
+        </div>
+        <div class="sidebar-footer">
+            <span>👤</span>
+            <span>FaceIntel System v2.0</span>
+        </div>
+        <a href="#" onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>window.location.href='/login');return false;" class="sidebar-footer" style="margin-top:0;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);cursor:pointer;text-decoration:none;color:rgba(255,255,255,0.7);transition:color 0.2s;" onmouseover="this.style.color='#fca5a5'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+            <span>🚪</span>
+            <span>Logout</span>
+        </a>
+    </div>
+
+    <!-- ── Main Content ─────────────────────────────────── -->
+    <div class="main-content">
+        <!-- Header -->
+        <header>
+            <div class="header-left"></div>
+            <div class="header-right">
+                <div class="user-profile">
+                    <input type="file" id="adminAvatarInput" style="display: none;" accept="image/*">
+                    <img src="/static/ameer_hamza.png" alt="Admin Avatar" class="user-avatar" title="Click to upload new photo" style="cursor: pointer;">
+                    <div class="user-info" title="Click to edit name" style="cursor: pointer;">
+                        <span class="user-name">Ameer Hamza</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Body -->
+        <div class="page-body">
+            <!-- Title Row -->
+            <div class="page-title-row fade-in">
+                <h1 class="page-title">
+                    <span class="page-title-icon">📊</span>
+                    System Logs
+                </h1>
+                <div class="total-badge" id="totalBadge">
+                    <span>📝</span>
+                    <span id="totalCount">0</span> entries
+                </div>
+            </div>
+
+            <!-- Filter Card -->
+            <div class="filter-card fade-in fade-in-delay-1">
+                <div class="filter-group">
+                    <label class="filter-label" for="filterDate">Date</label>
+                    <input type="date" id="filterDate" class="filter-input">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label" for="filterType">Event Type</label>
+                    <select id="filterType" class="filter-select">
+                        <option value="all">All Events</option>
+                        <option value="registration">Registration</option>
+                        <option value="check-in">Check-in</option>
+                        <option value="check-out">Check-out</option>
+                        <option value="recognition">Recognition</option>
+                        <option value="cctv_detection">CCTV Detection</option>
+                    </select>
+                </div>
+                <button class="filter-btn" id="filterBtn" onclick="fetchLogs()">
+                    🔍 Filter
+                </button>
+            </div>
+
+            <!-- Table Card -->
+            <div class="table-card fade-in fade-in-delay-2" id="tableCard">
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Photo</th>
+                                <th>Date / Time</th>
+                                <th>Event Type</th>
+                                <th>Employee Name</th>
+                                <th>Employee ID</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                            <!-- Rows rendered by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Loading State -->
+                <div class="loading-container" id="loadingState" style="display: none;">
+                    <div class="spinner"></div>
+                    <span class="loading-text">Loading logs…</span>
+                </div>
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📭</div>
+                    <div class="empty-title">No Logs Found</div>
+                    <div class="empty-subtitle">There are no activity logs matching your current filters. Try adjusting the date or event type.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Set Default Date to Today ──────────────────────
+        (function() {
+            const dateInput = document.getElementById('filterDate');
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+        })();
+
+        // ── Badge Mapping ──────────────────────────────────
+        function getBadgeClass(eventType) {
+            const type = (eventType || '').toLowerCase().replace(/[\s_-]+/g, '');
+            if (type.includes('registration')) return 'badge-registration';
+            if (type.includes('checkin') || type.includes('check-in') || type === 'checkin') return 'badge-checkin';
+            if (type.includes('checkout') || type.includes('check-out') || type === 'checkout') return 'badge-checkout';
+            if (type.includes('cctv') || type.includes('detection')) return 'badge-cctv';
+            if (type.includes('recognition')) return 'badge-recognition';
+            return 'badge-recognition';
+        }
+
+        function getBadgeLabel(eventType) {
+            const type = (eventType || '').toLowerCase().replace(/[\s_-]+/g, '');
+            if (type.includes('registration')) return '📋 Registration';
+            if (type.includes('checkin') || type.includes('check-in') || type === 'checkin') return '✅ Check-in';
+            if (type.includes('checkout') || type.includes('check-out') || type === 'checkout') return '🚪 Check-out';
+            if (type.includes('cctv') || type.includes('detection')) return '📹 CCTV Detection';
+            if (type.includes('recognition')) return '🔍 Recognition';
+            return eventType;
+        }
+
+        // ── Render Logs ────────────────────────────────────
+        function renderLogs(logs) {
+            const tbody = document.getElementById('logsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            const totalCount = document.getElementById('totalCount');
+
+            totalCount.textContent = logs.length;
+
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'flex';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = logs.map((log, idx) => {
+                // Build details string
+                const details = [];
+                if (log.department) details.push(`🏢 ${log.department}`);
+                if (log.confidence != null) details.push(`🎯 ${(log.confidence * 100).toFixed(1)}%`);
+                if (log.expression) details.push(`😊 ${log.expression}`);
+                if (log.camera_name) details.push(`📷 ${log.camera_name}`);
+                if (log.status) details.push(`⚡ ${log.status}`);
+                if (log.details) details.push(log.details);
+
+                const detailsHtml = details.map(d => `<span>${escapeHtml(d)}</span>`).join(' ');
+
+                const empId = log.employee_id || log.emp_id || '';
+                const photoUrl = empId && empId !== '—' ? `/api/employee_photo/${encodeURIComponent(empId)}` : '';
+                const initial = (log.employee_name || log.name || '?').charAt(0).toUpperCase();
+                const avatarHtml = photoUrl
+                    ? `<img class="log-avatar" src="${photoUrl}" alt="" onerror="this.outerHTML='<div class=\'log-avatar-fallback\'>${initial}</div>'">`
+                    : `<div class="log-avatar-fallback">${initial}</div>`;
+
+                return `
+                    <tr style="animation: fadeInUp 0.3s ease-out ${idx * 0.03}s both;">
+                        <td class="td-photo">${avatarHtml}</td>
+                        <td class="td-datetime">${escapeHtml(formatDateTime(log.timestamp || log.date_time || log.datetime || ''))}</td>
+                        <td><span class="badge ${getBadgeClass(log.event_type)}">${getBadgeLabel(log.event_type)}</span></td>
+                        <td class="td-name">${escapeHtml(log.employee_name || log.name || '—')}</td>
+                        <td class="td-id">${escapeHtml(empId || '—')}</td>
+                        <td class="td-details">${detailsHtml || '<span style="color:var(--grey-text)">—</span>'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ── Fetch Logs ─────────────────────────────────────
+        async function fetchLogs() {
+            const date = document.getElementById('filterDate').value;
+            const type = document.getElementById('filterType').value;
+            const tbody = document.getElementById('logsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            const loadingState = document.getElementById('loadingState');
+
+            // Show loading
+            tbody.innerHTML = '';
+            emptyState.style.display = 'none';
+            loadingState.style.display = 'flex';
+
+            try {
+                const response = await fetch(`/api/logs?date=${encodeURIComponent(date)}&type=${encodeURIComponent(type)}`);
+                const data = await response.json();
+                loadingState.style.display = 'none';
+                renderLogs(Array.isArray(data) ? data : (data.logs || []));
+            } catch (err) {
+                console.error('Error fetching logs:', err);
+                loadingState.style.display = 'none';
+                emptyState.style.display = 'flex';
+                document.getElementById('totalCount').textContent = '0';
+            }
+        }
+
+        // ── Helpers ────────────────────────────────────────
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function formatDateTime(dt) {
+            if (!dt) return '—';
+            try {
+                const d = new Date(dt);
+                if (isNaN(d.getTime())) return dt;
+                return d.toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+            } catch {
+                return dt;
+            }
+        }
+
+        // ── Admin Profile Editor (LocalStorage) ───────────
+        (function() {
+            const avatarInput = document.getElementById('adminAvatarInput');
+            const avatarImg = document.querySelector('.user-avatar');
+            const userInfo = document.querySelector('.user-info');
+            const userName = document.querySelector('.user-name');
+
+            const savedAvatar = localStorage.getItem('adminAvatar');
+            if (savedAvatar) {
+                document.querySelectorAll('.user-avatar').forEach(img => img.src = savedAvatar);
+            }
+            const savedName = localStorage.getItem('adminName');
+            if (savedName) {
+                document.querySelectorAll('.user-name').forEach(el => el.textContent = savedName);
+            }
+
+            if (avatarImg && avatarInput) {
+                avatarImg.addEventListener('click', () => avatarInput.click());
+                avatarInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            const dataUrl = evt.target.result;
+                            localStorage.setItem('adminAvatar', dataUrl);
+                            document.querySelectorAll('.user-avatar').forEach(img => img.src = dataUrl);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+
+            if (userInfo && userName) {
+                userInfo.addEventListener('click', () => {
+                    const newName = prompt("Enter new Administrator name:", userName.textContent.trim());
+                    if (newName && newName.trim()) {
+                        localStorage.setItem('adminName', newName.trim());
+                        document.querySelectorAll('.user-name').forEach(el => el.textContent = newName.trim());
+                    }
+                });
+            }
+        })();
+
+        // ── Sidebar Collapse & Expand (LocalStorage) ──────
+        (function() {
+            const collapseBtn = document.getElementById('collapseBtn');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (collapseBtn && sidebar) {
+                const collapseIcon = collapseBtn.querySelector('.collapse-icon');
+                const collapseText = collapseBtn.querySelector('.collapse-text');
+                
+                const updateStates = (collapsed) => {
+                    if (collapseIcon) collapseIcon.textContent = collapsed ? '▶' : '◀';
+                    if (collapseText) collapseText.textContent = collapsed ? 'Expand' : 'Collapse Sidebar';
+                };
+
+                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (isCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    updateStates(true);
+                }
+
+                collapseBtn.addEventListener('click', () => {
+                    const collapsed = sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', collapsed);
+                    updateStates(collapsed);
+                });
+            }
+        })();
+
+        // ── Initial Fetch ──────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchLogs();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+cd C:\Users\hp\Desktop\app\python_app
+python main.py

@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Detection — Infigo FaceIntel</title>
+    <meta name="description" content="Extract and recognize all unique individuals from uploaded videos or images.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-sidebar: #4f46e5;
+            --bg-sidebar-hover: #4338ca;
+            --bg-sidebar-active: #3730a3;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --accent: #4f46e5;
+            --accent-light: #e0e7ff;
+            --accent-glow: rgba(79, 70, 229, 0.2);
+            --success: #22c55e;
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --danger-text: #991b1b;
+            --grey-bg: #f1f5f9;
+            --grey-text: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* ── Left Sidebar Navigation ── */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-logo {
+            padding: 24px 32px;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .nav-item.active {
+            background: var(--bg-sidebar-active);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-item-icon {
+            font-size: 18px;
+        }
+
+        .sidebar-footer {
+            padding: 20px 24px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ── Collapsed Sidebar custom styles ── */
+        .collapse-btn {
+            border: none;
+            background: none;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-top: auto; /* Push to bottom of nav */
+            outline: none;
+        }
+        
+        .collapse-btn:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .sidebar {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .sidebar.collapsed {
+            width: 80px;
+        }
+        
+        .sidebar.collapsed .sidebar-logo span:nth-child(2),
+        .sidebar.collapsed .nav-item span:nth-child(2),
+        .sidebar.collapsed .sidebar-footer span:nth-child(2) {
+            display: none;
+        }
+        
+        .sidebar.collapsed .sidebar-logo {
+            justify-content: center;
+            padding: 24px 0;
+        }
+        
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+        
+        .sidebar.collapsed .sidebar-footer {
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        /* ── Main Panel ── */
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* ── Top Header ── */
+        header {
+            background: #ffffff;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .menu-btn {
+            font-size: 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent-light);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ── Page Content Container ── */
+        .content-container {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        /* ── Upload Area Styling ── */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #fafafb;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-light);
+            opacity: 0.95;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+        }
+
+        .dropzone h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .dropzone p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ── Processing Panel ── */
+        .processing-box {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 20px;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--accent-light);
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .processing-text h4 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .processing-text p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ── Card Results Grid ── */
+        .results-section {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .results-title-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+            margin-top: 10px;
+        }
+
+        .results-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .results-count {
+            font-size: 12px;
+            background: #e2e8f0;
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .person-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.02);
+            border: 1px solid #f1f5f9;
+            transition: all 0.2s;
+        }
+
+        .person-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        .person-crop-img {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent-light);
+            margin-bottom: 16px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .person-card.stranger .person-crop-img {
+            border-color: var(--danger-bg);
+        }
+
+        .person-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .person-id {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .status-badge {
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 12px;
+            border-radius: 30px;
+            margin-bottom: 14px;
+            display: inline-block;
+        }
+
+        .status-badge.employee {
+            background: var(--success-bg);
+            color: var(--success-text);
+        }
+
+        .status-badge.stranger {
+            background: var(--danger-bg);
+            color: var(--danger-text);
+        }
+
+        .meta-info {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 12px;
+            width: 100%;
+        }
+
+        .timestamp-badge {
+            font-family: var(--font-mono);
+            background: var(--grey-bg);
+            color: var(--text-secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-top: 6px;
+            display: inline-block;
+            align-self: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; }
+            .sidebar-logo { padding: 16px 24px; }
+            .sidebar-nav { flex-direction: row; padding: 12px 16px; overflow-x: auto; gap: 12px; }
+            .nav-item { padding: 8px 16px; font-size: 13px; }
+            .content-container { padding: 24px; }
+            header { display: none; }
+        }
+
+        /* ── Register Button on Stranger Cards ── */
+        .register-btn {
+            background: var(--danger);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-family: var(--font-main);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .register-btn:hover { filter: brightness(0.9); transform: translateY(-1px); }
+
+        /* ── Register Modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 28px;
+            width: 380px;
+            max-width: calc(100vw - 40px);
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+        }
+
+        .modal h3 { font-size: 18px; margin-bottom: 4px; }
+        .modal .modal-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+
+        .modal .face-preview {
+            width: 84px;
+            height: 84px;
+            object-fit: cover;
+            border-radius: 12px;
+            display: block;
+            margin-bottom: 16px;
+        }
+
+        .modal label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            margin-bottom: 14px;
+        }
+        .modal input:focus { outline: 2px solid var(--accent-light); border-color: var(--accent); }
+
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        .btn-secondary {
+            background: var(--grey-bg);
+            color: var(--text-primary);
+            border: none;
+            border-radius: 8px;
+            padding: 9px 16px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 9px 16px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-primary:disabled { background: var(--grey-text); cursor: wait; }
+
+        .modal-status { font-size: 13px; margin-bottom: 12px; display: none; padding: 8px 12px; border-radius: 8px; }
+        .modal-status.err { display: block; background: var(--danger-bg); color: var(--danger-text); }
+        .modal-status.ok { display: block; background: var(--success-bg); color: var(--success-text); }
+    </style>
+</head>
+<body>
+
+    <!-- ── Left Sidebar Navigation ── -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <span>🧠</span>
+            <span>Infigo FaceIntel</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="nav-item-icon">🎭</span>
+                <span>Detection</span>
+            </a>
+            <a href="/register" class="nav-item">
+                <span class="nav-item-icon">👤</span>
+                <span>Register</span>
+            </a>
+            <a href="/attendance" class="nav-item">
+                <span class="nav-item-icon">📋</span>
+                <span>Attendance</span>
+            </a>
+            <a href="/video_detection" class="nav-item active">
+                <span class="nav-item-icon">📹</span>
+                <span>Video Detection</span>
+            </a>
+            <a href="/live_cameras" class="nav-item">
+                <span class="nav-item-icon">🎥</span>
+                <span>Live Cameras</span>
+            </a>
+            <a href="/logs" class="nav-item">
+                <span class="nav-item-icon">📊</span>
+                <span>Logs</span>
+            </a>
+            <!-- Collapse Button -->
+            <button class="collapse-btn" id="collapseBtn">
+                <span class="nav-item-icon collapse-icon">◀</span>
+                <span class="collapse-text">Collapse Sidebar</span>
+            </button>
+        </div>
+        <div class="sidebar-footer">
+            <span>👤</span>
+            <span>FaceIntel System v2.0</span>
+        </div>
+        <a href="#" onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>window.location.href='/login');return false;" class="sidebar-footer" style="margin-top:0;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);cursor:pointer;text-decoration:none;color:rgba(255,255,255,0.7);transition:color 0.2s;" onmouseover="this.style.color='#fca5a5'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+            <span>🚪</span>
+            <span>Logout</span>
+        </a>
+    </div>
+
+    <!-- ── Main Panel ── -->
+    <div class="main-panel">
+        <!-- Top Header -->
+        <header>
+            <div class="header-left">
+                <!-- Removed menu-btn -->
+            </div>
+            <div class="header-right">
+                <!-- Removed bell-icon -->
+                <div class="user-profile">
+                    <input type="file" id="adminAvatarInput" style="display: none;" accept="image/*">
+                    <img src="/static/ameer_hamza.png" alt="Admin Avatar" class="user-avatar" title="Click to upload new photo" style="cursor: pointer;">
+                    <div class="user-info" title="Click to edit name" style="cursor: pointer;">
+                        <span class="user-name">Ameer Hamza</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="content-container">
+            <h2 class="page-title">Video & Image Detection</h2>
+
+            <!-- Uploader Card -->
+            <div class="card" id="uploaderCard">
+                <input type="file" id="videoFileInput" style="display: none;" accept="image/*,video/*">
+                <div class="dropzone" id="dropzone">
+                    <span class="upload-icon">📤</span>
+                    <h3>Drag & Drop Video or Image File</h3>
+                    <p>Or click to browse from files (Supports .mp4, .avi, .jpg, .png etc.)</p>
+                </div>
+            </div>
+
+            <!-- Processing card -->
+            <div class="card processing-box" id="processingBox">
+                <div class="spinner"></div>
+                <div class="processing-text">
+                    <h4>Processing Uploaded File...</h4>
+                    <p>Detecting, recognizing, and deduplicating face embeddings. Please wait.</p>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection">
+                <div class="results-title-bar">
+                    <span class="results-title">Detected Individuals</span>
+                    <span class="results-count" id="resultsCount">0 detected</span>
+                </div>
+                <div class="results-grid" id="resultsGrid">
+                    <!-- Cards populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Register Stranger Modal ── -->
+    <div class="modal-overlay" id="registerModal">
+        <div class="modal">
+            <h3>Register Person from Video</h3>
+            <p class="modal-sub">Register this stranger as a new employee using their detected face.</p>
+            <img class="face-preview" id="modalFace" src="" alt="Face">
+            <div class="modal-status" id="modalStatus"></div>
+            <label for="regEmpId">Employee ID</label>
+            <input type="text" id="regEmpId" placeholder="e.g. EMP005">
+            <label for="regName">Full Name</label>
+            <input type="text" id="regName" placeholder="e.g. Ali Khan">
+            <label for="regDept">Department (optional)</label>
+            <input type="text" id="regDept" placeholder="e.g. Engineering">
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" id="regSubmit" onclick="submitRegistration()">Register</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Admin Profile Editor (LocalStorage) ──
+        (function() {
+            const avatarInput = document.getElementById('adminAvatarInput');
+            const avatarImg = document.querySelector('.user-avatar');
+            const userInfo = document.querySelector('.user-info');
+            const userName = document.querySelector('.user-name');
+
+            const savedAvatar = localStorage.getItem('adminAvatar');
+            if (savedAvatar) {
+                document.querySelectorAll('.user-avatar').forEach(img => img.src = savedAvatar);
+            }
+            const savedName = localStorage.getItem('adminName');
+            if (savedName) {
+                document.querySelectorAll('.user-name').forEach(el => el.textContent = savedName);
+            }
+
+            if (avatarImg && avatarInput) {
+                avatarImg.addEventListener('click', () => avatarInput.click());
+                avatarInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            const dataUrl = evt.target.result;
+                            localStorage.setItem('adminAvatar', dataUrl);
+                            document.querySelectorAll('.user-avatar').forEach(img => img.src = dataUrl);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+
+            if (userInfo && userName) {
+                userInfo.addEventListener('click', () => {
+                    const newName = prompt("Enter new Administrator name:", userName.textContent.trim());
+                    if (newName && newName.trim()) {
+                        localStorage.setItem('adminName', newName.trim());
+                        document.querySelectorAll('.user-name').forEach(el => el.textContent = newName.trim());
+                    }
+                });
+            }
+        })();
+
+        // ── Sidebar Collapse & Expand (LocalStorage) ──
+        (function() {
+            const collapseBtn = document.getElementById('collapseBtn');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (collapseBtn && sidebar) {
+                const collapseIcon = collapseBtn.querySelector('.collapse-icon');
+                const collapseText = collapseBtn.querySelector('.collapse-text');
+                
+                const updateStates = (collapsed) => {
+                    if (collapseIcon) collapseIcon.textContent = collapsed ? '▶' : '◀';
+                    if (collapseText) collapseText.textContent = collapsed ? 'Expand' : 'Collapse Sidebar';
+                };
+
+                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (isCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    updateStates(true);
+                }
+
+                collapseBtn.addEventListener('click', () => {
+                    const collapsed = sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', collapsed);
+                    updateStates(collapsed);
+                });
+            }
+        })();
+
+        // ── Dropzone & Upload Handler ──
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('videoFileInput');
+        const processingBox = document.getElementById('processingBox');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsGrid = document.getElementById('resultsGrid');
+        const resultsCount = document.getElementById('resultsCount');
+
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFileUpload(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        async function handleFileUpload(file) {
+            // Validate file size or extension type if desired
+            processingBox.style.display = 'flex';
+            resultsSection.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/video_detect', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                renderResults(data.results || []);
+            } catch (err) {
+                console.error("Upload/Detection failed:", err);
+                alert("Processing failed. Make sure the file format is supported and face models are initialized.");
+            } finally {
+                processingBox.style.display = 'none';
+            }
+        }
+
+        let pendingStranger = null; // { face_crop, embedding }
+
+        function renderResults(results) {
+            resultsGrid.innerHTML = '';
+            resultsSection.style.display = 'flex';
+            resultsCount.textContent = `${results.length} unique individual${results.length !== 1 ? 's' : ''} detected`;
+
+            if (results.length === 0) {
+                resultsGrid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-secondary);">
+                        No faces detected in the uploaded file.
+                    </div>
+                `;
+                return;
+            }
+
+            results.forEach((person, idx) => {
+                const card = document.createElement('div');
+                card.className = `person-card ${person.is_stranger ? 'stranger' : 'employee'}`;
+
+                const badgeClass = person.is_stranger ? 'stranger' : 'employee';
+                const badgeLabel = person.is_stranger ? 'Stranger' : 'Registered';
+
+                let subText = '';
+                if (!person.is_stranger) {
+                    subText = `
+                        <span>Dept: ${escapeHtml(person.department)}</span>
+                        <span>Confidence: ${Math.round(person.confidence * 100)}%</span>
+                    `;
+                } else {
+                    subText = `
+                        <span style="color: var(--danger-text); font-weight: 700;">Flagged Stranger</span>
+                        <span>Confidence: 0.0%</span>
+                    `;
+                }
+
+                // Format timestamp
+                let timestampHtml = '';
+                if (person.first_seen_seconds > 0) {
+                    timestampHtml = `<span class="timestamp-badge">First seen: ${formatDuration(person.first_seen_seconds)}</span>`;
+                }
+
+                // Register button for strangers
+                let registerBtnHtml = '';
+                if (person.is_stranger && person.embedding) {
+                    registerBtnHtml = `<button class="register-btn" onclick="openModal(${idx})">➕ Register</button>`;
+                }
+
+                card.innerHTML = `
+                    <img src="${person.face_crop}" alt="Face Crop" class="person-crop-img">
+                    <div class="person-name">${escapeHtml(person.employee_name)}</div>
+                    <div class="person-id">ID: ${escapeHtml(person.employee_id)}</div>
+                    <span class="status-badge ${badgeClass}">${badgeLabel}</span>
+                    <div class="meta-info">
+                        ${subText}
+                        ${timestampHtml}
+                    </div>
+                    ${registerBtnHtml}
+                `;
+                resultsGrid.appendChild(card);
+            });
+
+            // Store results globally for modal access
+            window._lastResults = results;
+        }
+
+        function openModal(resultIdx) {
+            const person = window._lastResults[resultIdx];
+            if (!person) return;
+            pendingStranger = { face_crop: person.face_crop, embedding: person.embedding };
+            document.getElementById('modalFace').src = person.face_crop;
+            document.getElementById('regEmpId').value = '';
+            document.getElementById('regName').value = '';
+            document.getElementById('regDept').value = '';
+            const status = document.getElementById('modalStatus');
+            status.className = 'modal-status';
+            status.textContent = '';
+            document.getElementById('registerModal').classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('registerModal').classList.remove('open');
+            pendingStranger = null;
+        }
+
+        async function submitRegistration() {
+            if (!pendingStranger) return;
+            const status = document.getElementById('modalStatus');
+            const submit = document.getElementById('regSubmit');
+            const empId = document.getElementById('regEmpId').value.trim();
+            const name = document.getElementById('regName').value.trim();
+            const dept = document.getElementById('regDept').value.trim();
+
+            if (!empId || !name) {
+                status.className = 'modal-status err';
+                status.textContent = 'Employee ID and Full Name are required.';
+                return;
+            }
+
+            submit.disabled = true;
+            submit.textContent = 'Registering…';
+            status.className = 'modal-status';
+            status.textContent = '';
+            try {
+                const res = await fetch('/api/video_register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employee_id: empId,
+                        full_name: name,
+                        department: dept,
+                        embedding: pendingStranger.embedding,
+                        face_crop: pendingStranger.face_crop,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+                status.className = 'modal-status ok';
+                status.textContent = '✅ ' + data.message;
+                setTimeout(() => closeModal(), 1600);
+            } catch (err) {
+                status.className = 'modal-status err';
+                status.textContent = err.message;
+            } finally {
+                submit.disabled = false;
+                submit.textContent = 'Register';
+            }
+        }
+
+        function formatDuration(sec) {
+            const m = Math.floor(sec / 60);
+            const s = Math.round(sec % 60);
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}s`;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

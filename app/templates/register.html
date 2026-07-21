@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Employee — Infigo FaceIntel</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+    
+    <!-- Outfit Font Import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-sidebar: #4f46e5;
+            --bg-sidebar-hover: #4338ca;
+            --bg-sidebar-active: #3730a3;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --accent: #4f46e5;
+            --accent-light: #e0e7ff;
+            --accent-glow: rgba(79, 70, 229, 0.2);
+            --success: #22c55e;
+            --success-hover: #16a34a;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* ── Left Sidebar Navigation ── */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-logo {
+            padding: 24px 32px;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .nav-item.active {
+            background: var(--bg-sidebar-active);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-item-icon {
+            font-size: 18px;
+        }
+
+        .sidebar-footer {
+            padding: 20px 24px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ── Main Panel ── */
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* ── Top Header ── */
+        header {
+            background: #ffffff;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .menu-btn {
+            font-size: 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            color: var(--text-secondary);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .header-icons span:hover {
+            color: var(--text-primary);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent-light);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ── Container Layout ── */
+        .content-container {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            width: 100%;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
+        }
+
+        /* ── Form Styling ── */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            font-family: var(--font-main);
+            font-size: 14px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: var(--text-primary);
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: var(--font-main);
+            font-size: 14px;
+            font-weight: 700;
+            padding: 12px 22px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            width: 100%;
+            justify-content: center;
+            outline: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: var(--bg-sidebar-hover);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.2);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background-color: var(--success-hover);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+            font-size: 12px;
+            padding: 6px 12px;
+            width: auto;
+            border-radius: 6px;
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ── Webcam Preview ── */
+        .webcam-box {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #0f172a;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            border: 1px solid var(--card-border);
+        }
+
+        .webcam-box video, .webcam-box canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            border-radius: 12px;
+        }
+
+        /* ── Capture Progress ── */
+        .progress-bar-track {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 14px 0;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        /* Captured Thumbnails */
+        .thumb-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-top: 12px;
+            border-top: 1px solid var(--card-border);
+            padding-top: 12px;
+        }
+
+        .thumb-grid img {
+            width: 56px;
+            height: 56px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Feedback Message */
+        .feedback {
+            margin-top: 16px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .feedback.success {
+            display: block;
+            background: var(--green-bg);
+            color: var(--green-text);
+            border: 1px solid var(--green-border);
+        }
+
+        .feedback.error {
+            display: block;
+            background: var(--red-bg);
+            color: var(--red-text);
+            border: 1px solid var(--red-border);
+        }
+
+        /* ── Employees Table ── */
+        .emp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        .emp-table th, .emp-table td {
+            padding: 12px 14px;
+            text-align: left;
+            font-size: 13px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .emp-table th {
+            font-weight: 800;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 11px;
+        }
+
+        .emp-table td {
+            color: var(--text-primary);
+        }
+
+        .emp-table tr:hover td {
+            background: var(--grey-bg);
+        }
+
+        .emp-table .mono {
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; }
+            .sidebar-logo { padding: 16px 24px; }
+            .sidebar-nav { flex-direction: row; padding: 12px 16px; overflow-x: auto; gap: 12px; }
+            .nav-item { padding: 8px 16px; font-size: 13px; }
+            .content-container { padding: 24px; }
+            header { display: none; }
+            .container { grid-template-columns: 1fr; }
+        }
+    
+        /* ── Collapsed Sidebar custom styles ── */
+        .collapse-btn {
+            border: none;
+            background: none;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-top: auto; /* Push to bottom of nav */
+            outline: none;
+        }
+        
+        .collapse-btn:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .sidebar {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .sidebar.collapsed {
+            width: 80px;
+        }
+        
+        .sidebar.collapsed .sidebar-logo span:nth-child(2),
+        .sidebar.collapsed .nav-item span:nth-child(2),
+        .sidebar.collapsed .sidebar-footer span:nth-child(2) {
+            display: none;
+        }
+        
+        .sidebar.collapsed .sidebar-logo {
+            justify-content: center;
+            padding: 24px 0;
+        }
+        
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+        
+        .sidebar.collapsed .sidebar-footer {
+            justify-content: center;
+            padding: 20px 0;
+        }
+    </style>
+
+</head>
+<body>
+
+    <!-- ── Left Sidebar Navigation ── -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <span>🧠</span>
+            <span>Infigo FaceIntel</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="nav-item-icon">🎭</span>
+                <span>Detection</span>
+            </a>
+            <a href="/register" class="nav-item active">
+                <span class="nav-item-icon">👤</span>
+                <span>Register</span>
+            </a>
+            <a href="/attendance" class="nav-item">
+                <span class="nav-item-icon">📋</span>
+                <span>Attendance</span>
+            </a>
+            <a href="/video_detection" class="nav-item">
+                <span class="nav-item-icon">📹</span>
+                <span>Video Detection</span>
+            </a>
+            <a href="/live_cameras" class="nav-item">
+                <span class="nav-item-icon">🎥</span>
+                <span>Live Cameras</span>
+            </a>
+            <a href="/logs" class="nav-item">
+                <span class="nav-item-icon">📊</span>
+                <span>Logs</span>
+            </a>
+            <!-- Collapse Button -->
+            <button class="collapse-btn" id="collapseBtn">
+                <span class="nav-item-icon collapse-icon">◀</span>
+                <span class="collapse-text">Collapse Sidebar</span>
+            </button>
+        </div>
+        <div class="sidebar-footer">
+            <span>👤</span>
+            <span>FaceIntel System v2.0</span>
+        </div>
+        <a href="#" onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>window.location.href='/login');return false;" class="sidebar-footer" style="margin-top:0;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);cursor:pointer;text-decoration:none;color:rgba(255,255,255,0.7);transition:color 0.2s;" onmouseover="this.style.color='#fca5a5'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+            <span>🚪</span>
+            <span>Logout</span>
+        </a>
+    </div>
+
+    <!-- ── Main Panel ── -->
+    <div class="main-panel">
+        <!-- Top Header -->
+        <header>
+            <div class="header-left">
+                <!-- Removed menu-btn -->
+            </div>
+            <div class="header-right">
+                <!-- Removed bell-icon -->
+                <div class="user-profile">
+                    <input type="file" id="adminAvatarInput" style="display: none;" accept="image/*">
+                    <img src="/static/ameer_hamza.png" alt="Admin Avatar" class="user-avatar" title="Click to upload new photo" style="cursor: pointer;">
+                    <div class="user-info" title="Click to edit name" style="cursor: pointer;">
+                        <span class="user-name">Ameer Hamza</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content Container -->
+        <div class="content-container">
+            <div class="container">
+                <!-- Left: Form + Webcam -->
+                <div class="card">
+                    <div class="card-title">Employee Details</div>
+                    <div class="form-group">
+                        <label for="empId">Employee ID *</label>
+                        <input type="text" id="empId" placeholder="e.g. EMP001">
+                    </div>
+                    <div class="form-group">
+                        <label for="empName">Full Name *</label>
+                        <input type="text" id="empName" placeholder="e.g. John Smith">
+                    </div>
+                    <div class="form-group">
+                        <label for="empDept">Department (optional)</label>
+                        <input type="text" id="empDept" placeholder="e.g. Engineering">
+                    </div>
+
+                    <div class="card-title" style="margin-top: 24px;">Face Capture</div>
+                    <div class="webcam-box">
+                        <video id="regVideo" autoplay playsinline></video>
+                    </div>
+
+                    <button id="btnCapture" class="btn btn-primary" disabled>📷 Start Capturing (0 / 25)</button>
+
+                    <div class="progress-bar-track">
+                        <div id="progressFill" class="progress-bar-fill"></div>
+                    </div>
+                    <div id="progressLabel" class="progress-label">Open your webcam to begin capturing face images.</div>
+
+                    <div class="thumb-grid" id="thumbGrid"></div>
+
+                    <div style="margin-top: 16px;">
+                        <button id="btnRegister" class="btn btn-success" disabled>✅ Register Employee</button>
+                    </div>
+
+                    <div id="feedback" class="feedback"></div>
+                </div>
+
+                <!-- Right: Registered Employees Table -->
+                <div class="card">
+                    <div class="card-title">Registered Employees</div>
+                    <div id="empTableContainer">
+                        <p style="font-size: 13px; color: var(--text-secondary);">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden canvas for frame capture -->
+    <canvas id="capCanvas" style="display:none;" width="640" height="480"></canvas>
+<script>
+        // ── Sidebar Collapse & Expand (LocalStorage) ──
+        (function() {
+            const collapseBtn = document.getElementById('collapseBtn');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (collapseBtn && sidebar) {
+                const collapseIcon = collapseBtn.querySelector('.collapse-icon');
+                const collapseText = collapseBtn.querySelector('.collapse-text');
+                
+                // Helper to update text/icons
+                const updateStates = (collapsed) => {
+                    if (collapseIcon) collapseIcon.textContent = collapsed ? '▶' : '◀';
+                    if (collapseText) collapseText.textContent = collapsed ? 'Expand' : 'Collapse Sidebar';
+                };
+
+                // Load initial state
+                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (isCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    updateStates(true);
+                }
+
+                collapseBtn.addEventListener('click', () => {
+                    const collapsed = sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', collapsed);
+                    updateStates(collapsed);
+                });
+            }
+        })();
+
+        // ── Admin Profile Editor (LocalStorage) ──
+        (function() {
+            const avatarInput = document.getElementById('adminAvatarInput');
+            const avatarImg = document.querySelector('.user-avatar');
+            const userInfo = document.querySelector('.user-info');
+            const userName = document.querySelector('.user-name');
+
+            // Load saved settings on startup
+            const savedAvatar = localStorage.getItem('adminAvatar');
+            if (savedAvatar) {
+                document.querySelectorAll('.user-avatar').forEach(img => img.src = savedAvatar);
+            }
+            const savedName = localStorage.getItem('adminName');
+            if (savedName) {
+                document.querySelectorAll('.user-name').forEach(el => el.textContent = savedName);
+            }
+
+            // Click avatar image to upload a new one
+            if (avatarImg && avatarInput) {
+                avatarImg.addEventListener('click', () => avatarInput.click());
+                avatarInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            const dataUrl = evt.target.result;
+                            localStorage.setItem('adminAvatar', dataUrl);
+                            document.querySelectorAll('.user-avatar').forEach(img => img.src = dataUrl);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+
+            // Click name block to change administrator name
+            if (userInfo && userName) {
+                userInfo.addEventListener('click', () => {
+                    const newName = prompt("Enter new Administrator name:", userName.textContent.trim());
+                    if (newName && newName.trim()) {
+                        localStorage.setItem('adminName', newName.trim());
+                        document.querySelectorAll('.user-name').forEach(el => el.textContent = newName.trim());
+                    }
+                });
+            }
+        })();
+
+        const video = document.getElementById('regVideo');
+        const capCanvas = document.getElementById('capCanvas');
+        const capCtx = capCanvas.getContext('2d');
+        const btnCapture = document.getElementById('btnCapture');
+        const btnRegister = document.getElementById('btnRegister');
+        const progressFill = document.getElementById('progressFill');
+        const progressLabel = document.getElementById('progressLabel');
+        const thumbGrid = document.getElementById('thumbGrid');
+        const feedback = document.getElementById('feedback');
+
+        const TARGET_CAPTURES = 25;
+        let capturedImages = [];  // base64 strings
+        let isCapturing = false;
+        let captureInterval = null;
+        let stream = null;
+
+        // ── Start Webcam ──
+        async function startWebcam() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                video.srcObject = stream;
+                btnCapture.disabled = false;
+                progressLabel.innerText = "Webcam ready. Click 'Start Capturing' and look at the camera.";
+            } catch (err) {
+                progressLabel.innerText = "Error: Cannot access webcam.";
+                console.error(err);
+            }
+        }
+        startWebcam();
+
+        // ── Capture Flow ──
+        btnCapture.addEventListener('click', () => {
+            if (isCapturing) {
+                stopCapturing();
+            } else {
+                startCapturing();
+            }
+        });
+
+        function startCapturing() {
+            capturedImages = [];
+            thumbGrid.innerHTML = '';
+            isCapturing = true;
+            btnCapture.innerText = `⏹ Stop Capturing (0 / ${TARGET_CAPTURES})`;
+            btnCapture.style.background = '#ef4444';
+            btnRegister.disabled = true;
+            feedback.className = 'feedback';
+            feedback.innerText = '';
+
+            progressLabel.innerText = "Capturing... Move your head slightly for better registration.";
+
+            // Capture one frame every 400ms
+            captureInterval = setInterval(() => {
+                if (capturedImages.length >= TARGET_CAPTURES) {
+                    stopCapturing();
+                    return;
+                }
+
+                capCtx.drawImage(video, 0, 0, 640, 480);
+                const b64 = capCanvas.toDataURL('image/jpeg', 0.9);
+                capturedImages.push(b64);
+
+                // Add thumbnail
+                const img = document.createElement('img');
+                img.src = b64;
+                thumbGrid.appendChild(img);
+
+                // Update progress
+                const pct = Math.round((capturedImages.length / TARGET_CAPTURES) * 100);
+                progressFill.style.width = `${pct}%`;
+                btnCapture.innerText = `⏹ Stop Capturing (${capturedImages.length} / ${TARGET_CAPTURES})`;
+                progressLabel.innerText = `Captured ${capturedImages.length} of ${TARGET_CAPTURES} images...`;
+
+            }, 400);
+        }
+
+        function stopCapturing() {
+            isCapturing = false;
+            clearInterval(captureInterval);
+            btnCapture.innerText = `📷 Restart Capturing (${capturedImages.length} / ${TARGET_CAPTURES})`;
+            btnCapture.style.background = '';
+
+            if (capturedImages.length >= 5) {
+                btnRegister.disabled = false;
+                progressLabel.innerText = `✅ ${capturedImages.length} images captured. Ready to register!`;
+            } else {
+                progressLabel.innerText = `⚠️ Need at least 5 images. Got ${capturedImages.length}.`;
+            }
+        }
+
+        // ── Register Employee ──
+        btnRegister.addEventListener('click', async () => {
+            const empId = document.getElementById('empId').value.trim();
+            const empName = document.getElementById('empName').value.trim();
+            const empDept = document.getElementById('empDept').value.trim();
+
+            if (!empId) { showFeedback('Please enter an Employee ID.', 'error'); return; }
+            if (!empName) { showFeedback('Please enter a Full Name.', 'error'); return; }
+            if (capturedImages.length < 5) { showFeedback('Need at least 5 face images.', 'error'); return; }
+
+            btnRegister.disabled = true;
+            btnRegister.innerText = '⏳ Registering... (this may take a moment)';
+
+            try {
+                const response = await fetch('/api/register_employee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employee_id: empId,
+                        full_name: empName,
+                        department: empDept,
+                        images: capturedImages,
+                    }),
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showFeedback(data.message, 'success');
+                    // Reset form
+                    document.getElementById('empId').value = '';
+                    document.getElementById('empName').value = '';
+                    document.getElementById('empDept').value = '';
+                    capturedImages = [];
+                    thumbGrid.innerHTML = '';
+                    progressFill.style.width = '0%';
+                    btnCapture.innerText = `📷 Start Capturing (0 / ${TARGET_CAPTURES})`;
+                    progressLabel.innerText = 'Registration complete! You can register another employee.';
+                    loadEmployees(); // Refresh table
+                } else {
+                    showFeedback(data.error || 'Registration failed.', 'error');
+                }
+            } catch (err) {
+                showFeedback('Network error. Is the server running?', 'error');
+                console.error(err);
+            }
+
+            btnRegister.innerText = '✅ Register Employee';
+            btnRegister.disabled = capturedImages.length < 5;
+        });
+
+        function showFeedback(message, type) {
+            feedback.className = `feedback ${type}`;
+            feedback.innerText = message;
+        }
+
+        // ── Load Employees Table ──
+        async function loadEmployees() {
+            const container = document.getElementById('empTableContainer');
+            try {
+                const res = await fetch('/api/employees');
+                const data = await res.json();
+                const employees = data.employees || [];
+
+                if (employees.length === 0) {
+                    container.innerHTML = '<p style="font-size: 13px; color: var(--text-secondary);">No employees registered yet.</p>';
+                    return;
+                }
+
+                let html = `<table class="emp-table">
+                    <thead>
+                        <tr><th>ID</th><th>Name</th><th>Dept</th><th>Images</th><th>Registered</th><th></th></tr>
+                    </thead>
+                    <tbody>`;
+
+                employees.forEach(emp => {
+                    html += `<tr>
+                        <td style="font-family: var(--font-mono);">${emp.employee_id}</td>
+                        <td>${emp.full_name}</td>
+                        <td>${emp.department || '—'}</td>
+                        <td>${emp.image_count}</td>
+                        <td style="font-size:11px;">${emp.registered_at || '—'}</td>
+                        <td><button class="btn btn-danger" onclick="deleteEmployee('${emp.employee_id}')">🗑️</button></td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (err) {
+                container.innerHTML = '<p style="color: #ef4444;">Failed to load employees.</p>';
+            }
+        }
+
+        async function deleteEmployee(empId) {
+            if (!confirm(`Delete employee "${empId}"? This cannot be undone.`)) return;
+            try {
+                await fetch('/api/delete_employee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employee_id: empId }),
+                });
+                loadEmployees();
+            } catch (err) {
+                alert('Failed to delete employee.');
+            }
+        }
+
+        // Initial load
+        loadEmployees();
+    </script>
+</body>
+</html>

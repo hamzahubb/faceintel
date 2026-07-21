@@ -1,0 +1,3 @@
+set PATH=C:\Users\hp\AppData\Local\Temp\node_dist\node-v22.17.0-win-x64;%PATH%
+cd C:\Users\hp\Desktop\app
+npm run dev

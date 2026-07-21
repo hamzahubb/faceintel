@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Models (large binary files — downloaded at runtime)
+app/models/*.onnx
+app/models/*.tflite
+app/models/*.xml
+
+# Dataset (employee face images)
+app/dataset/
+
+# Logs
+*.log
+
+# Antigravity / Claude agent files
+.gemini/
+.agents/
+.claude/
+
+# Demo videos (too large for GitHub)
+app/demo_videos/

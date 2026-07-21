@@ -1,0 +1,7 @@
+opencv-python>=4.8.0
+mediapipe>=0.10.14
+numpy>=1.24.0
+Flask>=3.0.0
+onnxruntime>=1.18.0
+pymysql>=1.1.0
+gunicorn>=22.0.0

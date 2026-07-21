@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infigo FaceIntel — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --accent: #4f46e5;
+            --accent-dark: #4338ca;
+            --accent-deeper: #3730a3;
+            --accent-light: #e0e7ff;
+            --accent-glow: rgba(79, 70, 229, 0.25);
+            --bg-dark: #0f0d1a;
+            --bg-card: rgba(255, 255, 255, 0.06);
+            --bg-card-solid: #1a1730;
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f1f0f7;
+            --text-secondary: rgba(255, 255, 255, 0.55);
+            --text-muted: rgba(255, 255, 255, 0.35);
+            --success: #22c55e;
+            --danger: #ef4444;
+            --font-main: 'Outfit', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-dark);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ── Animated Background ── */
+        .bg-gradient {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 20% 30%, rgba(79, 70, 229, 0.18) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 80% at 80% 70%, rgba(139, 92, 246, 0.12) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 50% at 50% 50%, rgba(79, 70, 229, 0.06) 0%, transparent 80%);
+        }
+
+        .bg-gradient::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 25% 25%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+            animation: bgPulse 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgPulse {
+            0% { opacity: 0.6; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.05); }
+        }
+
+        /* Floating orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: orbFloat 12s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+        .orb-1 {
+            width: 400px; height: 400px;
+            background: rgba(79, 70, 229, 0.25);
+            top: -100px; left: -100px;
+            animation-duration: 14s;
+        }
+        .orb-2 {
+            width: 350px; height: 350px;
+            background: rgba(139, 92, 246, 0.2);
+            bottom: -80px; right: -80px;
+            animation-duration: 10s;
+            animation-delay: -4s;
+        }
+        .orb-3 {
+            width: 200px; height: 200px;
+            background: rgba(99, 102, 241, 0.15);
+            top: 50%; left: 60%;
+            animation-duration: 16s;
+            animation-delay: -8s;
+        }
+
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, -20px) scale(1.08); }
+            100% { transform: translate(-20px, 30px) scale(0.95); }
+        }
+
+        /* ── Main Container ── */
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            padding: 20px;
+        }
+
+        /* ── Logo / Brand ── */
+        .brand {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .brand-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 64px; height: 64px;
+            background: linear-gradient(135deg, var(--accent), #7c3aed);
+            border-radius: 18px;
+            font-size: 32px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 32px rgba(79, 70, 229, 0.35);
+            animation: brandPulse 3s ease-in-out infinite;
+        }
+        @keyframes brandPulse {
+            0%, 100% { box-shadow: 0 8px 32px rgba(79, 70, 229, 0.35); }
+            50% { box-shadow: 0 8px 48px rgba(79, 70, 229, 0.55); }
+        }
+        .brand h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+        .brand p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+
+        /* ── Glass Card ── */
+        .auth-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 36px 32px;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 14px;
+            padding: 4px;
+            margin-bottom: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            border-radius: 11px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: var(--font-main);
+        }
+        .tab:hover { color: var(--text-primary); }
+        .tab.active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
+        }
+
+        /* ── Form ── */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            letter-spacing: 0.3px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: var(--font-main);
+            transition: all 0.25s ease;
+            outline: none;
+        }
+        .form-input::placeholder { color: var(--text-muted); }
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        /* ── Buttons ── */
+        .btn-primary {
+            width: 100%;
+            padding: 15px 24px;
+            background: linear-gradient(135deg, var(--accent), #6d28d9);
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: var(--font-main);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.2px;
+        }
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(79, 70, 229, 0.4);
+        }
+        .btn-primary:hover::before { opacity: 1; }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .btn-outline {
+            width: 100%;
+            padding: 14px 24px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: var(--font-main);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            margin-top: 12px;
+        }
+        .btn-outline:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            background: rgba(79, 70, 229, 0.08);
+        }
+
+        /* ── Face Login ── */
+        .webcam-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+        }
+        .webcam-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        .webcam-container canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .webcam-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            gap: 12px;
+        }
+        .webcam-placeholder-icon {
+            font-size: 48px;
+            opacity: 0.4;
+        }
+        .webcam-placeholder-text {
+            font-size: 14px;
+        }
+
+        /* Face scan overlay animation */
+        .scan-line {
+            position: absolute;
+            top: 0; left: 10%; right: 10%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            box-shadow: 0 0 12px rgba(79, 70, 229, 0.6);
+            border-radius: 2px;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .scan-line.active {
+            opacity: 1;
+            animation: scanMove 2s ease-in-out infinite;
+        }
+        @keyframes scanMove {
+            0% { top: 10%; }
+            50% { top: 85%; }
+            100% { top: 10%; }
+        }
+
+        /* ── Panels (show/hide) ── */
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        /* ── Status / Alerts ── */
+        .status-msg {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            display: none;
+            animation: statusIn 0.3s ease;
+        }
+        @keyframes statusIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .status-msg.error {
+            display: block;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        .status-msg.success {
+            display: block;
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            color: #86efac;
+        }
+
+        /* ── Toggle Link ── */
+        .toggle-link {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .toggle-link a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .toggle-link a:hover { color: #818cf8; }
+
+        /* ── Loading Spinner ── */
+        .spinner {
+            display: inline-block;
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Face capture badge ── */
+        .face-capture-section {
+            margin-top: 20px;
+            padding: 16px;
+            background: rgba(79, 70, 229, 0.06);
+            border: 1px solid rgba(79, 70, 229, 0.12);
+            border-radius: 14px;
+        }
+        .face-capture-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .face-capture-title .badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            background: rgba(79, 70, 229, 0.15);
+            color: #a5b4fc;
+            border-radius: 6px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .face-preview {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .face-preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        .btn-capture {
+            width: 100%;
+            padding: 10px;
+            background: rgba(79, 70, 229, 0.12);
+            color: #a5b4fc;
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: var(--font-main);
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .btn-capture:hover {
+            background: rgba(79, 70, 229, 0.2);
+            color: #c7d2fe;
+        }
+        .btn-capture.captured {
+            background: rgba(34, 197, 94, 0.12);
+            border-color: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+        }
+
+        /* ── Confidence badge ── */
+        .confidence-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .confidence-badge.high {
+            background: rgba(34, 197, 94, 0.12);
+            color: #86efac;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 520px) {
+            .login-container { padding: 16px; }
+            .auth-card { padding: 28px 20px; }
+            .brand h1 { font-size: 24px; }
+        }
+
+        /* ── Password visibility toggle ── */
+        .input-wrapper {
+            position: relative;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px;
+            transition: color 0.2s;
+        }
+        .toggle-password:hover { color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+
+<!-- Animated Background -->
+<div class="bg-gradient"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="login-container">
+    <!-- Brand -->
+    <div class="brand">
+        <div class="brand-icon">🧠</div>
+        <h1>Infigo FaceIntel</h1>
+        <p>AI-Powered Face Recognition System</p>
+    </div>
+
+    <!-- Auth Card -->
+    <div class="auth-card">
+
+        <!-- ═══════════ LOGIN FORM ═══════════ -->
+        <div id="loginPanel" class="panel active">
+            <!-- Tabs: Password / Face -->
+            <div class="tabs">
+                <button class="tab active" id="tabPassword" onclick="switchTab('password')">🔑 Password</button>
+                <button class="tab" id="tabFace" onclick="switchTab('face')">🎭 Face Login</button>
+            </div>
+
+            <!-- Status Message -->
+            <div id="loginStatus" class="status-msg"></div>
+
+            <!-- Password Login -->
+            <div id="passwordPanel" class="panel active">
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-input" id="loginUsername" placeholder="Enter your username" autocomplete="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <div class="input-wrapper">
+                            <input type="password" class="form-input" id="loginPassword" placeholder="Enter your password" autocomplete="current-password" required>
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('loginPassword', this)">👁</button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" id="loginBtn">Sign In</button>
+                </form>
+            </div>
+
+            <!-- Face Login -->
+            <div id="facePanel" class="panel">
+                <div class="webcam-container" id="faceLoginWebcam">
+                    <video id="faceVideo" autoplay playsinline muted></video>
+                    <canvas id="faceCanvas"></canvas>
+                    <div class="scan-line" id="scanLine"></div>
+                    <div class="webcam-placeholder" id="faceWebcamPlaceholder">
+                        <span class="webcam-placeholder-icon">📷</span>
+                        <span class="webcam-placeholder-text">Starting camera...</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-primary" id="faceScanBtn" onclick="handleFaceLogin()">
+                    🔍 Scan & Login
+                </button>
+            </div>
+
+            <div class="toggle-link">
+                Don't have an account? <a onclick="showSignup()">Create Account</a>
+            </div>
+        </div>
+
+        <!-- ═══════════ SIGNUP FORM ═══════════ -->
+        <div id="signupPanel" class="panel">
+            <h2 style="font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Create Account</h2>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 24px;">Register to access the system</p>
+
+            <!-- Status Message -->
+            <div id="signupStatus" class="status-msg"></div>
+
+            <form id="signupForm" onsubmit="handleSignup(event)">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-input" id="signupFullName" placeholder="Enter your full name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-input" id="signupUsername" placeholder="Choose a username" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <div class="input-wrapper">
+                        <input type="password" class="form-input" id="signupPassword" placeholder="Minimum 6 characters" autocomplete="new-password" required>
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signupPassword', this)">👁</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm Password</label>
+                    <div class="input-wrapper">
+                        <input type="password" class="form-input" id="signupConfirmPassword" placeholder="Re-enter your password" autocomplete="new-password" required>
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signupConfirmPassword', this)">👁</button>
+                    </div>
+                </div>
+
+                <!-- Optional Face Capture -->
+                <div class="face-capture-section">
+                    <div class="face-capture-title">
+                        🎭 Face Registration <span class="badge">Optional</span>
+                    </div>
+                    <div class="face-preview" id="signupFacePreview">
+                        <video id="signupFaceVideo" autoplay playsinline muted></video>
+                        <div class="webcam-placeholder" id="signupFacePlaceholder">
+                            <span class="webcam-placeholder-icon">📷</span>
+                            <span class="webcam-placeholder-text">Enable face login</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-capture" id="captureBtn" onclick="captureSignupFace()">
+                        📷 Start Camera & Capture Face
+                    </button>
+                </div>
+
+                <button type="submit" class="btn-primary" id="signupBtn" style="margin-top: 24px;">Create Account</button>
+            </form>
+
+            <div class="toggle-link">
+                Already have an account? <a onclick="showLogin()">Sign In</a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // ── State ──
+    let faceLoginStream = null;
+    let signupFaceStream = null;
+    let capturedFaceB64 = null;
+    let faceLoginActive = false;
+
+    // ── Tab Switching ──
+    function switchTab(tab) {
+        document.getElementById('tabPassword').classList.toggle('active', tab === 'password');
+        document.getElementById('tabFace').classList.toggle('active', tab === 'face');
+        document.getElementById('passwordPanel').classList.toggle('active', tab === 'password');
+        document.getElementById('facePanel').classList.toggle('active', tab === 'face');
+        clearStatus('loginStatus');
+
+        // Stop face camera if switching away, start if switching to face tab
+        if (tab === 'password') {
+            stopFaceLoginCamera();
+        } else if (tab === 'face') {
+            startFaceLoginCamera();
+        }
+    }
+
+    // ── Show Login / Signup Panels ──
+    function showSignup() {
+        document.getElementById('loginPanel').classList.remove('active');
+        document.getElementById('signupPanel').classList.add('active');
+        stopFaceLoginCamera();
+        clearStatus('loginStatus');
+        clearStatus('signupStatus');
+    }
+
+    function showLogin() {
+        document.getElementById('signupPanel').classList.remove('active');
+        document.getElementById('loginPanel').classList.add('active');
+        stopSignupCamera();
+        clearStatus('signupStatus');
+        clearStatus('loginStatus');
+    }
+
+    // ── Status Messages ──
+    function showStatus(elId, message, type) {
+        const el = document.getElementById(elId);
+        el.textContent = message;
+        el.className = 'status-msg ' + type;
+    }
+
+    function clearStatus(elId) {
+        const el = document.getElementById(elId);
+        el.className = 'status-msg';
+        el.textContent = '';
+    }
+
+    // ── Password Toggle ──
+    function togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            btn.textContent = '👁';
+        }
+    }
+
+    // ── Password Login ──
+    async function handleLogin(e) {
+        e.preventDefault();
+        const btn = document.getElementById('loginBtn');
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+
+        if (!username || !password) {
+            showStatus('loginStatus', 'Please fill in all fields.', 'error');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Signing in...';
+        clearStatus('loginStatus');
+
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                showStatus('loginStatus', data.message, 'success');
+                setTimeout(() => window.location.href = '/', 800);
+            } else {
+                showStatus('loginStatus', data.error || 'Login failed.', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Sign In';
+            }
+        } catch (err) {
+            showStatus('loginStatus', 'Network error. Please try again.', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Sign In';
+        }
+    }
+
+    // ── Face Login Auto-Scan & Recognition ──
+    let autoScanTimer = null;
+    let isLoginProcessing = false;
+
+    async function startFaceLoginCamera() {
+        const placeholder = document.getElementById('faceWebcamPlaceholder');
+        const video = document.getElementById('faceVideo');
+        try {
+            faceLoginStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 640, height: 480, facingMode: 'user' }
+            });
+            video.srcObject = faceLoginStream;
+            placeholder.style.display = 'none';
+
+            // Wait until video is playing then start auto-scan loop
+            video.onloadedmetadata = () => {
+                video.play();
+                startAutoScanLoop();
+            };
+            startAutoScanLoop();
+            return true;
+        } catch (err) {
+            showStatus('loginStatus', 'Camera access denied. Please allow camera permissions.', 'error');
+            return false;
+        }
+    }
+
+    function stopFaceLoginCamera() {
+        stopAutoScanLoop();
+        if (faceLoginStream) {
+            faceLoginStream.getTracks().forEach(t => t.stop());
+            faceLoginStream = null;
+        }
+        const video = document.getElementById('faceVideo');
+        video.srcObject = null;
+        document.getElementById('faceWebcamPlaceholder').style.display = 'flex';
+        document.getElementById('scanLine').classList.remove('active');
+        clearFaceCanvas();
+        faceLoginActive = false;
+        isLoginProcessing = false;
+    }
+
+    function startAutoScanLoop() {
+        stopAutoScanLoop();
+        autoScanTimer = setInterval(() => {
+            if (!isLoginProcessing && faceLoginStream) {
+                runFaceScan(false); // background scan
+            }
+        }, 1200);
+    }
+
+    function stopAutoScanLoop() {
+        if (autoScanTimer) {
+            clearInterval(autoScanTimer);
+            autoScanTimer = null;
+        }
+    }
+
+    function clearFaceCanvas() {
+        const canvas = document.getElementById('faceCanvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    function drawFaceOverlay(bbox, isRecognized, name, confidence) {
+        const video = document.getElementById('faceVideo');
+        const canvas = document.getElementById('faceCanvas');
+        if (!canvas || !video || !bbox) return;
+
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Calculate box dimensions (taking video mirroring into account)
+        const scaleX = canvas.width / (video.videoWidth || 640);
+        const scaleY = canvas.height / (video.videoHeight || 480);
+
+        const x = bbox.originX * scaleX;
+        const y = bbox.originY * scaleY;
+        const w = bbox.width * scaleX;
+        const h = bbox.height * scaleY;
+
+        // Draw bounding box
+        ctx.strokeStyle = isRecognized ? '#22c55e' : '#818cf8';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = isRecognized ? 'rgba(34, 197, 94, 0.6)' : 'rgba(129, 140, 248, 0.6)';
+        ctx.shadowBlur = 10;
+
+        // Rounded box
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 12);
+        ctx.stroke();
+
+        // Label pill
+        const labelText = isRecognized ? `✔ ${name} (${confidence}%)` : `👤 Scanning...`;
+        ctx.font = 'bold 13px Outfit, sans-serif';
+        const textWidth = ctx.measureText(labelText).width;
+        const labelW = textWidth + 20;
+        const labelH = 26;
+        const labelX = x + (w - labelW) / 2;
+        const labelY = Math.max(10, y - labelH - 6);
+
+        ctx.fillStyle = isRecognized ? 'rgba(22, 101, 52, 0.9)' : 'rgba(30, 27, 75, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(labelX, labelY, labelW, labelH, 8);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelText, labelX + labelW / 2, labelY + labelH / 2);
+    }
+
+    async function handleFaceLogin() {
+        runFaceScan(true); // manual button click
+    }
+
+    async function runFaceScan(isManualClick) {
+        if (isLoginProcessing) return;
+
+        const btn = document.getElementById('faceScanBtn');
+        const video = document.getElementById('faceVideo');
+
+        if (!faceLoginStream || video.readyState < 2) {
+            if (isManualClick) await startFaceLoginCamera();
+            return;
+        }
+
+        isLoginProcessing = true;
+        document.getElementById('scanLine').classList.add('active');
+
+        if (isManualClick) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Scanning face...';
+            clearStatus('loginStatus');
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL('image/jpeg', 0.85);
+
+        try {
+            const res = await fetch('/api/auth/face_login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData }),
+            });
+            const data = await res.json();
+
+            document.getElementById('scanLine').classList.remove('active');
+
+            if (data.bbox) {
+                drawFaceOverlay(data.bbox, data.success, data.employee_name, data.confidence);
+            } else {
+                clearFaceCanvas();
+            }
+
+            if (data.success) {
+                stopAutoScanLoop();
+                showStatus('loginStatus', `✨ ${data.message} (${data.confidence}% match)`, 'success');
+                btn.disabled = true;
+                btn.innerHTML = '✔ Recognized! Logging in...';
+                setTimeout(() => window.location.href = '/', 900);
+            } else {
+                // Unrecognized face — offer direct registration link with the captured frame!
+                const statusDiv = document.getElementById('loginStatus');
+                statusDiv.innerHTML = `
+                    <span>Face not recognized. New to the system? </span>
+                    <a onclick="registerWithScannedFace('${imageData.replace(/'/g, "\\'")}')" style="color: #a5b4fc; font-weight: 700; text-decoration: underline; cursor: pointer; margin-left: 4px;">
+                        ➕ Register Account with this Face
+                    </a>
+                `;
+                statusDiv.className = 'status-msg error';
+
+                if (isManualClick) {
+                    btn.disabled = false;
+                    btn.textContent = '🔍 Scan & Login';
+                }
+                isLoginProcessing = false;
+            }
+        } catch (err) {
+            document.getElementById('scanLine').classList.remove('active');
+            if (isManualClick) {
+                showStatus('loginStatus', 'Network error. Please try again.', 'error');
+                btn.disabled = false;
+                btn.textContent = '🔍 Scan & Login';
+            }
+            isLoginProcessing = false;
+        }
+    }
+
+    // ── Signup ──
+    async function handleSignup(e) {
+        e.preventDefault();
+        const btn = document.getElementById('signupBtn');
+        const fullName = document.getElementById('signupFullName').value.trim();
+        const username = document.getElementById('signupUsername').value.trim();
+        const password = document.getElementById('signupPassword').value;
+        const confirmPassword = document.getElementById('signupConfirmPassword').value;
+
+        if (!fullName || !username || !password) {
+            showStatus('signupStatus', 'Please fill in all required fields.', 'error');
+            return;
+        }
+        if (password !== confirmPassword) {
+            showStatus('signupStatus', 'Passwords do not match.', 'error');
+            return;
+        }
+        if (password.length < 6) {
+            showStatus('signupStatus', 'Password must be at least 6 characters.', 'error');
+            return;
+        }
+        if (username.length < 3) {
+            showStatus('signupStatus', 'Username must be at least 3 characters.', 'error');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Creating account...';
+        clearStatus('signupStatus');
+
+        try {
+            const res = await fetch('/api/auth/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    full_name: fullName,
+                    username: username,
+                    password: password,
+                    face_image: capturedFaceB64,
+                }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                let msg = data.message;
+                if (data.has_face) msg += ' Face login enabled! ✨';
+                showStatus('signupStatus', msg, 'success');
+                stopSignupCamera();
+                setTimeout(() => window.location.href = '/', 1200);
+            } else {
+                showStatus('signupStatus', data.error || 'Signup failed.', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            }
+        } catch (err) {
+            showStatus('signupStatus', 'Network error. Please try again.', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Create Account';
+        }
+    }
+
+    // ── Signup Face Capture ──
+    async function captureSignupFace() {
+        const btn = document.getElementById('captureBtn');
+        const video = document.getElementById('signupFaceVideo');
+        const placeholder = document.getElementById('signupFacePlaceholder');
+
+        // If camera not started, start it
+        if (!signupFaceStream) {
+            try {
+                signupFaceStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                video.srcObject = signupFaceStream;
+                placeholder.style.display = 'none';
+                btn.textContent = '📸 Capture Face';
+                return;
+            } catch (err) {
+                showStatus('signupStatus', 'Camera access denied.', 'error');
+                return;
+            }
+        }
+
+        // Capture frame
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        capturedFaceB64 = canvas.toDataURL('image/jpeg', 0.9);
+
+        // Show captured state
+        btn.classList.add('captured');
+        btn.textContent = '✅ Face Captured — Click to Retake';
+
+        // If clicked again, allow retake
+        btn.onclick = () => {
+            capturedFaceB64 = null;
+            btn.classList.remove('captured');
+            btn.textContent = '📸 Capture Face';
+            btn.onclick = captureSignupFace;
+        };
+    }
+
+    function registerWithScannedFace(faceB64) {
+        capturedFaceB64 = faceB64;
+        showSignup();
+        const btn = document.getElementById('captureBtn');
+        if (btn) {
+            btn.classList.add('captured');
+            btn.textContent = '✅ Scanned Face Attached — Fill in details below!';
+        }
+        showStatus('signupStatus', '✨ Scanned face attached! Enter your name, username, and password below to complete registration.', 'success');
+        const nameInput = document.getElementById('signupFullName');
+        if (nameInput) nameInput.focus();
+    }
+
+    function stopSignupCamera() {
+        if (signupFaceStream) {
+            signupFaceStream.getTracks().forEach(t => t.stop());
+            signupFaceStream = null;
+        }
+    }
+
+    // ── Init: auto-show signup if flagged ──
+    {% if signup %}
+    showSignup();
+    {% endif %}
+</script>
+</body>
+</html>

@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infigo FaceIntel — Detection</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+    
+    <!-- Outfit Font Import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-sidebar: #4f46e5;
+            --bg-sidebar-hover: #4338ca;
+            --bg-sidebar-active: #3730a3;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --accent: #4f46e5;
+            --accent-light: #e0e7ff;
+            --accent-glow: rgba(79, 70, 229, 0.2);
+            --red: #ef4444;
+            --red-bg: #fee2e2;
+            --red-border: rgba(239, 68, 68, 0.15);
+            --green: #22c55e;
+            --green-bg: #dcfce7;
+            --green-border: rgba(34, 197, 94, 0.15);
+            --purple: #a855f7;
+            --purple-bg: rgba(168, 85, 247, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* ── Left Sidebar Navigation ── */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-logo {
+            padding: 24px 32px;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .nav-item.active {
+            background: var(--bg-sidebar-active);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-item-icon {
+            font-size: 18px;
+        }
+
+        .sidebar-footer {
+            padding: 20px 24px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ── Main Panel ── */
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* ── Top Header ── */
+        header {
+            background: #ffffff;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .menu-btn {
+            font-size: 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            color: var(--text-secondary);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .header-icons span:hover {
+            color: var(--text-primary);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent-light);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ── Container Layout ── */
+        .content-container {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 24px;
+            width: 100%;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+
+        /* ── Left Column ── */
+        .left-column {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Camera Box ── */
+        .webcam-card {
+            position: relative;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            aspect-ratio: 4/3;
+            width: 100%;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+        }
+
+        .webcam-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 16px;
+            display: block;
+        }
+
+        .status-overlay {
+            position: absolute;
+            z-index: 5;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 13px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 10px 20px;
+            border-radius: 99px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            text-align: center;
+        }
+
+        /* ── Controls Panel ── */
+        .controls-card {
+            padding: 20px;
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            font-family: var(--font-main);
+            font-size: 13px;
+            font-weight: 700;
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--bg-sidebar-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: #f1f5f9;
+            color: var(--text-primary);
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #e2e8f0;
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .checkbox-label input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .controls-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .fps-indicator {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .face-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            display: inline-block;
+        }
+
+        .status-dot.active {
+            background-color: #22c55e;
+            box-shadow: 0 0 6px #22c55e;
+        }
+
+        /* ── Right Column: Attendance Console & Mood ── */
+        .right-column {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ═══ Attendance Console ═══ */
+        .attendance-card {
+            border-left: 4px solid var(--accent);
+        }
+
+        .person-name {
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: -0.01em;
+        }
+
+        .person-detail {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+
+        .person-detail span {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .verify-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 16px 0;
+            border-top: 1px solid var(--card-border);
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .verify-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .verify-step.done {
+            color: #22c55e;
+        }
+
+        .verify-step.active {
+            color: var(--accent);
+        }
+
+        .verify-step .step-icon {
+            font-size: 16px;
+        }
+
+        .time-display {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .time-block {
+            flex: 1;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .time-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .time-value {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .status-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .status-badge.red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+        .status-badge.green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+        .status-badge.purple { background: var(--purple-bg); color: var(--purple); }
+
+        .wave-banner {
+            background: var(--purple-bg);
+            color: var(--purple);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 14px;
+            display: none;
+        }
+
+        .wave-banner.visible {
+            display: block;
+        }
+
+        /* ═══ Mood Snapshot ═══ */
+        .emotion-mini {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .emotion-mini .mini-emoji {
+            font-size: 38px;
+        }
+
+        .emotion-mini .mini-label {
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .emotion-mini .mini-conf {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Bars list */
+        .bars-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+        }
+
+        .bar-label {
+            width: 80px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .bar-container {
+            flex: 1;
+            height: 8px;
+            background-color: #f1f5f9;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background-color: var(--accent);
+            border-radius: 99px;
+            width: 0;
+            transition: width 0.3s ease;
+        }
+
+        .bar-percent {
+            width: 35px;
+            text-align: right;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ═══ Emotion Timeline Chart ═══ */
+        .timeline-card {
+            grid-column: span 2;
+        }
+
+        .svg-container {
+            width: 100%;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px;
+            overflow: hidden;
+        }
+
+        .timeline-svg {
+            width: 100%;
+            height: 130px;
+            display: block;
+        }
+
+        .svg-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-top: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; }
+            .sidebar-logo { padding: 16px 24px; }
+            .sidebar-nav { flex-direction: row; padding: 12px 16px; overflow-x: auto; gap: 12px; }
+            .nav-item { padding: 8px 16px; font-size: 13px; }
+            .content-container { padding: 24px; }
+            header { display: none; }
+            .main-container { grid-template-columns: 1fr; }
+            .timeline-card { grid-column: span 1; }
+        }
+    
+        /* ── Collapsed Sidebar custom styles ── */
+        .collapse-btn {
+            border: none;
+            background: none;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-top: auto; /* Push to bottom of nav */
+            outline: none;
+        }
+        
+        .collapse-btn:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .sidebar {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .sidebar.collapsed {
+            width: 80px;
+        }
+        
+        .sidebar.collapsed .sidebar-logo span:nth-child(2),
+        .sidebar.collapsed .nav-item span:nth-child(2),
+        .sidebar.collapsed .sidebar-footer span:nth-child(2) {
+            display: none;
+        }
+        
+        .sidebar.collapsed .sidebar-logo {
+            justify-content: center;
+            padding: 24px 0;
+        }
+        
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+        
+        .sidebar.collapsed .sidebar-footer {
+            justify-content: center;
+            padding: 20px 0;
+        }
+    </style>
+
+</head>
+<body>
+
+    <!-- ── Left Sidebar Navigation ── -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <span>🧠</span>
+            <span>Infigo FaceIntel</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/" class="nav-item active">
+                <span class="nav-item-icon">🎭</span>
+                <span>Detection</span>
+            </a>
+            <a href="/register" class="nav-item">
+                <span class="nav-item-icon">👤</span>
+                <span>Register</span>
+            </a>
+            <a href="/attendance" class="nav-item">
+                <span class="nav-item-icon">📋</span>
+                <span>Attendance</span>
+            </a>
+            <a href="/video_detection" class="nav-item">
+                <span class="nav-item-icon">📹</span>
+                <span>Video Detection</span>
+            </a>
+            <a href="/live_cameras" class="nav-item">
+                <span class="nav-item-icon">🎥</span>
+                <span>Live Cameras</span>
+            </a>
+            <a href="/logs" class="nav-item">
+                <span class="nav-item-icon">📊</span>
+                <span>Logs</span>
+            </a>
+            <!-- Collapse Button -->
+            <button class="collapse-btn" id="collapseBtn">
+                <span class="nav-item-icon collapse-icon">◀</span>
+                <span class="collapse-text">Collapse Sidebar</span>
+            </button>
+        </div>
+        <div class="sidebar-footer">
+            <span>👤</span>
+            <span>FaceIntel System v2.0</span>
+        </div>
+        <a href="#" onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>window.location.href='/login');return false;" class="sidebar-footer" style="margin-top:0;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);cursor:pointer;text-decoration:none;color:rgba(255,255,255,0.7);transition:color 0.2s;" onmouseover="this.style.color='#fca5a5'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+            <span>🚪</span>
+            <span>Logout</span>
+        </a>
+    </div>
+
+    <!-- ── Main Panel ── -->
+    <div class="main-panel">
+        <!-- Top Header -->
+        <header>
+            <div class="header-left">
+                <!-- Removed menu-btn -->
+            </div>
+            <div class="header-right">
+                <!-- Removed bell-icon -->
+                <div class="user-profile">
+                    <input type="file" id="adminAvatarInput" style="display: none;" accept="image/*">
+                    <img src="/static/ameer_hamza.png" alt="Admin Avatar" class="user-avatar" title="Click to upload new photo" style="cursor: pointer;">
+                    <div class="user-info" title="Click to edit name" style="cursor: pointer;">
+                        <span class="user-name">Ameer Hamza</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content Container -->
+        <div class="content-container">
+            <main class="main-container">
+                <!-- Left Column: Video & Controls -->
+                <div class="left-column">
+                    <!-- Camera Canvas Container -->
+                    <div class="card webcam-card">
+                        <canvas id="videoCanvas" class="webcam-canvas"></canvas>
+                        <div id="statusLabel" class="status-overlay">AI model ready! Click Start Camera.</div>
+                    </div>
+
+                    <!-- Controls Panel -->
+                    <div class="card controls-card">
+                        <div class="controls-row">
+                            <button id="btnStart" class="btn btn-primary">▶  Start Camera</button>
+                            <button id="btnSnapshot" class="btn btn-secondary" disabled>📸  Snapshot</button>
+                            
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="chkLandmarks" checked>
+                                <span>Landmarks</span>
+                            </label>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="chkMirror" checked>
+                                <span>Mirror</span>
+                            </label>
+
+                            <div class="controls-right">
+                                <div id="fpsLabel" class="fps-indicator">FPS: --</div>
+                                <div class="face-status">
+                                    <span id="statusDot" class="status-dot"></span>
+                                    <span id="faceStatusTxt">No Face</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="debugLabel" style="font-family: var(--font-mono); font-size: 11px; color: #ef4444; margin-top: 10px; line-height: 1.4; display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Attendance Console & Mood -->
+                <div class="right-column">
+                    <!-- Attendance Console Card (Hidden by default as per request, but structurally preserved for JS) -->
+                    <div class="card attendance-card unknown" id="attendanceCard" style="display: none !important;">
+                        <div class="card-title">📋 Attendance Console</div>
+                        <div id="personName" class="person-name" style="color: var(--text-secondary);">Waiting for Face…</div>
+                        <div class="person-detail">ID: <span id="personId">—</span></div>
+                        <div class="person-detail">Department: <span id="personDept">—</span></div>
+
+                        <div class="verify-steps">
+                            <div class="verify-step" id="stepRecognition">
+                                <span class="step-icon">⏳</span>
+                                <span>Step 1 — Face Recognition</span>
+                            </div>
+                            <div class="verify-step" id="stepAttendance">
+                                <span class="step-icon">⏳</span>
+                                <span id="stepAttendanceLabel">Step 2 — Attendance</span>
+                            </div>
+                        </div>
+
+                        <div class="time-display" id="timeDisplay" style="display: none;">
+                            <div class="time-block">
+                                <div class="time-label">Check In</div>
+                                <div class="time-value" id="checkInTime">—</div>
+                            </div>
+                            <div class="time-block">
+                                <div class="time-label">Check Out</div>
+                                <div class="time-value" id="checkOutTime">—</div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;" id="badgeRow">
+                            <div id="recognitionBadge" class="status-badge red" style="display:none;">Unknown</div>
+                            <div id="attendanceBadge" class="status-badge purple" style="display:none;"></div>
+                        </div>
+
+                        <div class="wave-banner" id="waveBanner">👋 Wave your hand to Check Out</div>
+                    </div>
+
+                    <!-- Mood Snapshot Card -->
+                    <div class="card">
+                        <div class="card-title">😊 Mood Snapshot</div>
+                        <div class="emotion-mini">
+                            <span class="mini-emoji" id="emojiDisplay">🎭</span>
+                            <div>
+                                <div class="mini-label" id="dominantName" style="color: var(--text-secondary);">Waiting...</div>
+                                <div class="mini-conf" id="confidenceDisplay">--</div>
+                            </div>
+                        </div>
+                        <div class="bars-list" id="barsList">
+                            <!-- Bars are dynamically updated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lower Row: Emotion Timeline Chart -->
+                <div class="card timeline-card">
+                    <div class="card-title">Emotion Timeline (Last 60 Seconds)</div>
+                    <div class="svg-container">
+                        <svg id="timelineSvg" class="timeline-svg" viewBox="0 0 1000 130" preserveAspectRatio="none">
+                            <!-- SVG lines and grids are dynamically drawn -->
+                        </svg>
+                    </div>
+                    <div class="svg-legend" id="svgLegend">
+                        <!-- Legend dynamically inserted -->
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Hidden Video element to capture raw camera frames -->
+    <video id="videoElement" style="display:none;" autoplay playsinline></video>
+
+    <!-- Offline capture canvas for frame grabs -->
+    <canvas id="captureCanvas" style="display:none;" width="640" height="480"></canvas>
+<script>
+        // ── Sidebar Collapse & Expand (LocalStorage) ──
+        (function() {
+            const collapseBtn = document.getElementById('collapseBtn');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (collapseBtn && sidebar) {
+                const collapseIcon = collapseBtn.querySelector('.collapse-icon');
+                const collapseText = collapseBtn.querySelector('.collapse-text');
+                
+                // Helper to update text/icons
+                const updateStates = (collapsed) => {
+                    if (collapseIcon) collapseIcon.textContent = collapsed ? '▶' : '◀';
+                    if (collapseText) collapseText.textContent = collapsed ? 'Expand' : 'Collapse Sidebar';
+                };
+
+                // Load initial state
+                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (isCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    updateStates(true);
+                }
+
+                collapseBtn.addEventListener('click', () => {
+                    const collapsed = sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', collapsed);
+                    updateStates(collapsed);
+                });
+            }
+        })();
+
+        // ── Admin Profile Editor (LocalStorage) ──
+        (function() {
+            const avatarInput = document.getElementById('adminAvatarInput');
+            const avatarImg = document.querySelector('.user-avatar');
+            const userInfo = document.querySelector('.user-info');
+            const userName = document.querySelector('.user-name');
+
+            // Load saved settings on startup
+            const savedAvatar = localStorage.getItem('adminAvatar');
+            if (savedAvatar) {
+                document.querySelectorAll('.user-avatar').forEach(img => img.src = savedAvatar);
+            }
+            const savedName = localStorage.getItem('adminName');
+            if (savedName) {
+                document.querySelectorAll('.user-name').forEach(el => el.textContent = savedName);
+            }
+
+            // Click avatar image to upload a new one
+            if (avatarImg && avatarInput) {
+                avatarImg.addEventListener('click', () => avatarInput.click());
+                avatarInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            const dataUrl = evt.target.result;
+                            localStorage.setItem('adminAvatar', dataUrl);
+                            document.querySelectorAll('.user-avatar').forEach(img => img.src = dataUrl);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+
+            // Click name block to change administrator name
+            if (userInfo && userName) {
+                userInfo.addEventListener('click', () => {
+                    const newName = prompt("Enter new Administrator name:", userName.textContent.trim());
+                    if (newName && newName.trim()) {
+                        localStorage.setItem('adminName', newName.trim());
+                        document.querySelectorAll('.user-name').forEach(el => el.textContent = newName.trim());
+                    }
+                });
+            }
+        })();
+
+        // ──────────────────────────────────────────────────────────────
+        // Configuration
+        // ──────────────────────────────────────────────────────────────
+        const EMOTIONS = {
+            happy:     { label: 'Happy',     emoji: '😊', color: '#22c55e' },
+            sad:       { label: 'Sad',       emoji: '😢', color: '#3b82f6' },
+            angry:     { label: 'Angry',     emoji: '😠', color: '#ef4444' },
+            surprised: { label: 'Surprised', emoji: '😲', color: '#f59e0b' },
+            neutral:   { label: 'Neutral',   emoji: '😐', color: '#94a3b8' },
+            fearful:   { label: 'Fearful',   emoji: '😨', color: '#a855f7' },
+            disgusted: { label: 'Disgusted', emoji: '🤢', color: '#84cc16' }
+        };
+        const EMOTION_KEYS = Object.keys(EMOTIONS);
+        const HISTORY_MAX = 60;
+
+        // ──────────────────────────────────────────────────────────────
+        // UI & State Variables
+        // ──────────────────────────────────────────────────────────────
+        const video = document.getElementById('videoElement');
+        const canvas = document.getElementById('videoCanvas');
+        const ctx = canvas.getContext('2d');
+        const capCanvas = document.getElementById('captureCanvas');
+        const capCtx = capCanvas.getContext('2d');
+        
+        const btnStart = document.getElementById('btnStart');
+        const btnSnapshot = document.getElementById('btnSnapshot');
+        const chkLandmarks = document.getElementById('chkLandmarks');
+        const chkMirror = document.getElementById('chkMirror');
+        const statusLabel = document.getElementById('statusLabel');
+        const fpsLabel = document.getElementById('fpsLabel');
+        const statusDot = document.getElementById('statusDot');
+        const faceStatusTxt = document.getElementById('faceStatusTxt');
+        
+        const emojiDisplay = document.getElementById('emojiDisplay');
+        const dominantName = document.getElementById('dominantName');
+        const confidenceDisplay = document.getElementById('confidenceDisplay');
+        const barsList = document.getElementById('barsList');
+
+        let cameraActive = false;
+        let stream = null;
+        let detectionLoopActive = false;
+        
+        let lastFrameTime = 0;
+        let fpsCount = 0;
+        let lastFpsUpdateTime = 0;
+        
+        // Decoupled loop state
+        let latestDetectionData = null;
+        let isSendingFrame = false;
+        let lastSendTime = 0;
+
+        // Timeline history: array of objects { scores: {}, dominant: '' }
+        let history = [];
+        let lastHistoryRecordTime = 0;
+
+        // Initialize progress bars layout
+        function buildBarsMarkup() {
+            barsList.innerHTML = '';
+            EMOTION_KEYS.forEach(key => {
+                const config = EMOTIONS[key];
+                const html = `
+                    <div class="bar-item" id="bar-${key}">
+                        <div class="bar-header">
+                            <span class="bar-label">${config.emoji} ${config.label}</span>
+                            <span class="bar-value" id="val-${key}" style="color: ${config.color}">0%</span>
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill" id="fill-${key}" style="background-color: ${config.color}; box-shadow: 0 0 6px ${config.color}40"></div>
+                        </div>
+                    </div>
+                `;
+                barsList.insertAdjacentHTML('beforeend', html);
+            });
+
+            // Build legend markup
+            const legend = document.getElementById('svgLegend');
+            legend.innerHTML = '';
+            EMOTION_KEYS.forEach(key => {
+                const config = EMOTIONS[key];
+                const html = `
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: ${config.color}"></span>
+                        <span>${config.label}</span>
+                    </div>
+                `;
+                legend.insertAdjacentHTML('beforeend', html);
+            });
+        }
+        buildBarsMarkup();
+
+        // ──────────────────────────────────────────────────────────────
+        // Camera Capture Handlers
+        // ──────────────────────────────────────────────────────────────
+        btnStart.addEventListener('click', toggleCamera);
+        btnSnapshot.addEventListener('click', takeSnapshot);
+
+        async function toggleCamera() {
+            if (cameraActive) {
+                stopCamera();
+            } else {
+                await startCamera();
+            }
+        }
+
+        async function startCamera() {
+            try {
+                statusLabel.innerText = "Accessing camera...";
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    // Match draw canvas size to standard 4:3
+                    canvas.width = 640;
+                    canvas.height = 480;
+                    
+                    statusLabel.style.display = 'none';
+                    btnStart.innerText = "⏹  Stop Camera";
+                    btnStart.classList.add('recording');
+                    btnSnapshot.disabled = false;
+                    cameraActive = true;
+                    
+                    // Reset backend tracking
+                    fetch('/api/reset_liveness', { method: 'POST' }).catch(err => {});
+
+                    if (!detectionLoopActive) {
+                        detectionLoopActive = true;
+                        latestDetectionData = null;
+                        requestAnimationFrame(renderLoop);
+                        sendFrameLoop();
+                    }
+                };
+            } catch (err) {
+                console.error("Camera access failed: ", err);
+                statusLabel.innerText = "Error: Camera access denied or busy.";
+            }
+        }
+
+        function stopCamera() {
+            cameraActive = false;
+            detectionLoopActive = false;
+            
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            video.srcObject = null;
+
+            btnStart.innerText = "▶  Start Camera";
+            btnStart.classList.remove('recording');
+            btnSnapshot.disabled = true;
+            statusLabel.innerText = "Camera stopped. Click Start Camera.";
+            statusLabel.style.display = 'block';
+            
+            statusDot.classList.remove('active');
+            faceStatusTxt.innerText = "No Face";
+            fpsLabel.innerText = "FPS: --";
+            
+            // Reset displays
+            emojiDisplay.innerText = "🎭";
+            dominantName.innerText = "Waiting...";
+            dominantName.style.color = "var(--text-secondary)";
+            confidenceDisplay.innerText = "--";
+            
+            // Reset attendance console
+            const card = document.getElementById('attendanceCard');
+            if (card) card.className = 'card attendance-card unknown';
+            document.getElementById('personName').innerText = 'Waiting for Face…';
+            document.getElementById('personName').style.color = 'var(--text-secondary)';
+            document.getElementById('personId').innerText = '—';
+            document.getElementById('personDept').innerText = '—';
+
+            // Reset verification steps
+            ['stepRecognition', 'stepAttendance'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.className = 'verify-step'; el.querySelector('.step-icon').innerText = '⏳'; }
+            });
+
+            // Reset badges and banners
+            ['recognitionBadge', 'attendanceBadge'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            const wb = document.getElementById('waveBanner');
+            if (wb) { wb.className = 'wave-banner'; wb.innerText = '👋 Wave your hand to Check Out'; }
+            const td = document.getElementById('timeDisplay');
+            if (td) td.style.display = 'none';
+
+            // Reset backend liveness
+            fetch('/api/reset_liveness', { method: 'POST' }).catch(err => {});
+
+            EMOTION_KEYS.forEach(key => {
+                document.getElementById(`fill-${key}`).style.width = '0%';
+                document.getElementById(`val-${key}`).innerText = '0%';
+            });
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function takeSnapshot() {
+            if (!cameraActive) return;
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = `expression-capture-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // ──────────────────────────────────────────────────────────────
+        // Decoupled Smooth Rendering Loop (Runs locally at maximum FPS)
+        // ──────────────────────────────────────────────────────────────
+        function renderLoop() {
+            if (!cameraActive) {
+                detectionLoopActive = false;
+                return;
+            }
+
+            // Render live frame + most recent overlay data
+            drawWebcamWithOverlays(latestDetectionData);
+
+            // Calculate FPS
+            const now = performance.now();
+            fpsCount++;
+            if (now - lastFpsUpdateTime >= 1000) {
+                fpsLabel.innerText = `FPS: ${fpsCount}`;
+                fpsCount = 0;
+                lastFpsUpdateTime = now;
+            }
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        // ──────────────────────────────────────────────────────────────
+        // Background API Processing Loop (Runs asynchronously without blocking camera)
+        // ──────────────────────────────────────────────────────────────
+        async function sendFrameLoop() {
+            if (!cameraActive) return;
+
+            const now = performance.now();
+            // Send frame every 80ms (~12 FPS analysis, keeps server load light and response instant)
+            if (now - lastSendTime < 80 || isSendingFrame) {
+                setTimeout(sendFrameLoop, 16);
+                return;
+            }
+
+            lastSendTime = now;
+            isSendingFrame = true;
+
+            // Draw current webcam frame onto hidden offscreen capture canvas
+            capCtx.drawImage(video, 0, 0, 640, 480);
+            const base64Frame = capCanvas.toDataURL('image/jpeg', 0.82);
+
+            try {
+                // Send frame to Python Flask server
+                const response = await fetch('/process_frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64Frame })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    latestDetectionData = data;
+                    
+                    // Update stats
+                    if (data && data.faces && data.faces.length > 0) {
+                        statusDot.classList.add('active');
+                        
+                        const count = data.faces.length;
+                        faceStatusTxt.innerText = count > 1 ? `${count} Faces Detected` : "Face Detected";
+                        
+                        // Feed first face's details to the sidebar console
+                        const primaryFace = data.faces[0];
+                        if (primaryFace.scores && primaryFace.dominant) {
+                            updateBarsAndEmoji(primaryFace.scores, primaryFace.dominant, primaryFace);
+                            recordHistory(primaryFace.scores);
+                        }
+                    } else {
+                        statusDot.classList.remove('active');
+                        faceStatusTxt.innerText = "No Face";
+
+                        // Reset displays
+                        emojiDisplay.innerText = "🎭";
+                        dominantName.innerText = "Waiting...";
+                        dominantName.style.color = "var(--text-secondary)";
+                        confidenceDisplay.innerText = "--";
+
+                        EMOTION_KEYS.forEach(key => {
+                            document.getElementById(`fill-${key}`).style.width = '0%';
+                            document.getElementById(`val-${key}`).innerText = '0%';
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("[API] Error calling Python process_frame: ", err);
+            } finally {
+                isSendingFrame = false;
+                setTimeout(sendFrameLoop, 16);
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────
+        // Canvas Rendering (Client-Side Overlay Drawing)
+        // ──────────────────────────────────────────────────────────────
+        function drawWebcamWithOverlays(data) {
+            ctx.save();
+            
+            // Handle mirroring
+            if (chkMirror.checked) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+
+            // 1. Draw raw video frame onto canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // 2. Draw overlays for all active faces
+            let debugHTML = "";
+            if (data && data.faces && data.faces.length > 0) {
+                data.faces.forEach((face, idx) => {
+                    debugHTML += `Face ${idx}: name=${face.employee_name}, x=${face.bounding_box.originX}, w=${face.bounding_box.width}, dominant=${face.dominant ? face.dominant.label : 'null'}<br>`;
+                    const bb = face.bounding_box;
+                    const color = face.dominant ? face.dominant.color : '#6366f1';
+                    
+                    // Draw bounding box
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2.5;
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.roundRect(bb.originX, bb.originY, bb.width, bb.height, 12);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0; // disable shadow for accents
+
+                    // Draw corner accents
+                    const x = bb.originX;
+                    const y = bb.originY;
+                    const w = bb.width;
+                    const h = bb.height;
+                    const acc = Math.min(20, w * 0.15, h * 0.15);
+                    ctx.lineWidth = 4;
+                    ctx.lineCap = 'round';
+
+                    // Top-left
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + acc); ctx.lineTo(x, y); ctx.lineTo(x + acc, y);
+                    ctx.stroke();
+                    // Top-right
+                    ctx.beginPath();
+                    ctx.moveTo(x + w - acc, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + acc);
+                    ctx.stroke();
+                    // Bottom-left
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + h - acc); ctx.lineTo(x, y + h); ctx.lineTo(x + acc, y + h);
+                    ctx.stroke();
+                    // Bottom-right
+                    ctx.beginPath();
+                    ctx.moveTo(x + w - acc, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - acc);
+                    ctx.stroke();
+
+                    // Draw 468 landmark dots (Batched for high performance)
+                    if (chkLandmarks.checked && face.landmarks) {
+                        ctx.fillStyle = 'rgba(130, 120, 255, 0.75)';
+                        ctx.beginPath();
+                        face.landmarks.forEach(pt => {
+                            const px = pt[0] * canvas.width;
+                            const py = pt[1] * canvas.height;
+                            ctx.rect(px - 1, py - 1, 2, 2);
+                        });
+                        ctx.fill();
+                    }
+
+                    // Draw dominant emotion pill label (with employee name if recognized)
+                    if (face.dominant) {
+                        // Build label: include employee name if recognized, liveness status, and expression
+                        let namePart = face.is_recognized ? face.employee_name : 'Stranger';
+                        
+                        let attendanceStatusPart = '';
+                        if (face.is_recognized && face.attendance) {
+                            if (face.attendance.attendance_action === 'check_in') {
+                                attendanceStatusPart = ' (Checked In)';
+                            } else if (face.attendance.attendance_action === 'checked_out') {
+                                attendanceStatusPart = ' (Checked Out)';
+                            } else if (face.attendance.attendance_action === 'already_in') {
+                                attendanceStatusPart = ' (Wave to Checkout)';
+                            }
+                        }
+
+                        const labelTxt = `${namePart}${attendanceStatusPart} — ${face.dominant.emoji} ${face.dominant.label}`;
+                        ctx.font = "bold 12px 'Outfit', sans-serif";
+                        const metrics = ctx.measureText(labelTxt);
+                        const pillW = metrics.width + 20;
+                        const pillH = 26;
+                        
+                        // Center the pill above the face bounding box
+                        const pillX = bb.originX + (bb.width - pillW) / 2;
+                        const pillY = Math.max(8, bb.originY - pillH - 10);
+
+                        // Pill background
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                        ctx.beginPath();
+                        ctx.roundRect(pillX, pillY, pillW, pillH, 8);
+                        ctx.fill();
+                        
+                        // Pill border — green if recognized, red if unknown, purple if checked out
+                        let borderCol = '#ef4444';
+                        if (face.is_recognized) {
+                            borderCol = face.attendance && face.attendance.attendance_action === 'checked_out' ? '#6366f1' : '#22c55e';
+                        }
+                        ctx.strokeStyle = borderCol;
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+
+                        // Unmirror only the text drawing so it prints left-to-right
+                        ctx.save();
+                        ctx.translate(pillX + pillW / 2, pillY + pillH / 2);
+                        if (chkMirror.checked) {
+                            ctx.scale(-1, 1);
+                        }
+                        ctx.fillStyle = '#ffffff';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(labelTxt, 0, 0);
+                        ctx.restore();
+                    }
+                });
+            }
+            const debugEl = document.getElementById('debugLabel');
+            if (debugEl) {
+                if (debugHTML) {
+                    debugEl.style.display = 'block';
+                    debugEl.innerHTML = debugHTML;
+                } else {
+                    debugEl.style.display = 'none';
+                }
+            }
+
+            ctx.restore();
+        }
+
+        // ──────────────────────────────────────────────────────────────
+        // UI Information Syncing
+        // ──────────────────────────────────────────────────────────────
+        function formatTime(dtStr) {
+            if (!dtStr) return '—';
+            try {
+                const parts = dtStr.split(' ');
+                if (parts.length < 2) return dtStr;
+                const timeParts = parts[1].split(':');
+                let h = parseInt(timeParts[0]);
+                const m = timeParts[1];
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                h = h % 12 || 12;
+                return `${h}:${m} ${ampm}`;
+            } catch (e) { return dtStr; }
+        }
+
+        function updateBarsAndEmoji(scores, dominant, data) {
+            if (!scores || !dominant) return;
+
+            // Emotion snapshot (compact)
+            emojiDisplay.innerText = dominant.emoji;
+            dominantName.innerText = dominant.label;
+            dominantName.style.color = dominant.color;
+            confidenceDisplay.innerText = `${Math.round(dominant.score * 100)}% confidence`;
+
+            // === Attendance Console ===
+            const card = document.getElementById('attendanceCard');
+            const personName = document.getElementById('personName');
+            const personId = document.getElementById('personId');
+            const personDept = document.getElementById('personDept');
+            const badge = document.getElementById('recognitionBadge');
+            const attBadge = document.getElementById('attendanceBadge');
+            const waveBanner = document.getElementById('waveBanner');
+            const timeDisplay = document.getElementById('timeDisplay');
+            const checkInTime = document.getElementById('checkInTime');
+            const checkOutTime = document.getElementById('checkOutTime');
+            const stepRecognition = document.getElementById('stepRecognition');
+            const stepAttendance = document.getElementById('stepAttendance');
+            const stepAttendanceLabel = document.getElementById('stepAttendanceLabel');
+
+            // Step 2: Recognition
+            if (data && data.is_recognized) {
+                card.className = 'card attendance-card checked-in';
+                personName.innerText = data.employee_name;
+                personName.style.color = '#22c55e';
+                personId.innerText = data.employee_id;
+                personDept.innerText = data.department || '—';
+                badge.className = 'status-badge green';
+                badge.innerText = '✓ Matched';
+                badge.style.display = 'inline-block';
+                stepRecognition.className = 'verify-step done';
+                stepRecognition.querySelector('.step-icon').innerText = '✅';
+            } else {
+                card.className = 'card attendance-card unknown';
+                personName.innerText = 'Stranger';
+                personName.style.color = 'var(--text-secondary)';
+                personId.innerText = '—';
+                personDept.innerText = '—';
+                badge.className = 'status-badge red';
+                badge.innerText = 'Unknown';
+                badge.style.display = 'none';
+                stepRecognition.className = 'verify-step';
+                stepRecognition.querySelector('.step-icon').innerText = '⏳';
+            }
+
+            // Step 3: Attendance + Wave
+            const att = data ? data.attendance : null;
+            if (att && data.is_recognized) {
+                timeDisplay.style.display = 'flex';
+                checkInTime.innerText = formatTime(att.check_in_time);
+
+                if (att.attendance_action === 'check_in') {
+                    // Just checked in!
+                    card.className = 'card attendance-card checked-in';
+                    stepAttendance.className = 'verify-step done';
+                    stepAttendance.querySelector('.step-icon').innerText = '✅';
+                    stepAttendanceLabel.innerText = 'Step 2 — Checked In';
+                    attBadge.className = 'status-badge green';
+                    attBadge.innerText = '✓ CHECKED IN';
+                    attBadge.style.display = 'inline-block';
+                    waveBanner.className = 'wave-banner';
+                    checkOutTime.innerText = '—';
+
+                } else if (att.attendance_action === 'already_in' && att.requires_wave) {
+                    // Waiting for wave to check out
+                    card.className = 'card attendance-card wave-pending';
+                    stepAttendance.className = 'verify-step active';
+                    stepAttendance.querySelector('.step-icon').innerText = '👋';
+                    stepAttendanceLabel.innerText = 'Step 2 — Wave to Check Out';
+                    attBadge.className = 'status-badge amber';
+                    attBadge.innerText = att.hand_visible ? '✋ HAND DETECTED' : '👋 WAVE NEEDED';
+                    attBadge.style.display = 'inline-block';
+                    waveBanner.className = 'wave-banner visible';
+                    waveBanner.innerText = att.hand_visible ? '✋ Keep waving…' : '👋 Wave your hand to Check Out';
+                    checkOutTime.innerText = '—';
+
+                } else if (att.attendance_action === 'checked_out') {
+                    // Checked out (either just now via wave, or already was)
+                    card.className = 'card attendance-card checked-out';
+                    stepAttendance.className = 'verify-step done';
+                    stepAttendance.querySelector('.step-icon').innerText = '✅';
+                    stepAttendanceLabel.innerText = 'Step 2 — Checked Out';
+                    attBadge.className = 'status-badge purple';
+                    attBadge.innerText = '✓ CHECKED OUT';
+                    attBadge.style.display = 'inline-block';
+                    waveBanner.className = 'wave-banner visible success';
+                    waveBanner.innerText = '✅ Checkout Complete!';
+                    checkOutTime.innerText = formatTime(att.check_out_time);
+                }
+            } else {
+                timeDisplay.style.display = 'none';
+                attBadge.style.display = 'none';
+                waveBanner.className = 'wave-banner';
+                stepAttendance.className = 'verify-step';
+                stepAttendance.querySelector('.step-icon').innerText = '⏳';
+                stepAttendanceLabel.innerText = 'Step 2 — Attendance';
+            }
+
+            // Sort emotion bars dynamically by score
+            const sortedKeys = [...EMOTION_KEYS].sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
+            
+            sortedKeys.forEach((key, index) => {
+                const score = scores[key] || 0;
+                const pct = Math.round(score * 100);
+                
+                const fill = document.getElementById(`fill-${key}`);
+                const val = document.getElementById(`val-${key}`);
+                fill.style.width = `${pct}%`;
+                val.innerText = `${pct}%`;
+
+                const item = document.getElementById(`bar-${key}`);
+                item.style.order = index;
+            });
+        }
+
+        // ──────────────────────────────────────────────────────────────
+        // Rolling SVG Timeline Chart
+        // ──────────────────────────────────────────────────────────────
+        function recordHistory(scores) {
+            const now = Date.now();
+            if (now - lastHistoryRecordTime < 1000) return; // limit to 1 per second
+            lastHistoryRecordTime = now;
+
+            history.push({ scores: scores });
+            if (history.length > HISTORY_MAX) {
+                history.shift();
+            }
+
+            drawTimelineChart();
+        }
+
+        function drawTimelineChart() {
+            const svg = document.getElementById('timelineSvg');
+            svg.innerHTML = ''; // clear previous paths
+            
+            if (history.length < 2) return;
+
+            const width = 1000;
+            const height = 130;
+            const padL = 40;
+            const padR = 10;
+            const padT = 15;
+            const padB = 20;
+
+            const chartW = width - padL - padR;
+            const chartH = height - padT - padB;
+            const maxIdx = history.length - 1;
+
+            // Draw horizontal grid lines
+            const gridLevels = [0, 0.25, 0.5, 0.75, 1];
+            gridLevels.forEach(lvl => {
+                const y = padT + (1 - lvl) * chartH;
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", padL);
+                line.setAttribute("y1", y);
+                line.setAttribute("x2", width - padR);
+                line.setAttribute("y2", y);
+                line.setAttribute("stroke", "rgba(255, 255, 255, 0.08)");
+                line.setAttribute("stroke-width", "1");
+                if (lvl > 0 && lvl < 1) {
+                    line.setAttribute("stroke-dasharray", "4,4");
+                }
+                svg.appendChild(line);
+
+                // Add grid label text
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", padL - 8);
+                text.setAttribute("y", y + 3);
+                text.setAttribute("text-anchor", "end");
+                text.setAttribute("fill", "var(--text-secondary)");
+                text.setAttribute("font-size", "9px");
+                text.setAttribute("font-weight", "700");
+                text.textContent = `${Math.round(lvl * 100)}%`;
+                svg.appendChild(text);
+            });
+
+            // Draw paths for each emotion
+            EMOTION_KEYS.forEach(key => {
+                const config = EMOTIONS[key];
+                let pathPoints = [];
+
+                history.forEach((entry, idx) => {
+                    const x = padL + (idx / maxIdx) * chartW;
+                    const score = entry.scores[key] || 0;
+                    const y = padT + (1 - score) * chartH;
+                    pathPoints.push(`${x},${y}`);
+                });
+
+                if (pathPoints.length > 0) {
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    path.setAttribute("d", `M ${pathPoints.join(' L ')}`);
+                    path.setAttribute("fill", "none");
+                    path.setAttribute("stroke", config.color);
+                    path.setAttribute("stroke-width", "2");
+                    path.setAttribute("stroke-linecap", "round");
+                    path.setAttribute("stroke-linejoin", "round");
+                    path.setAttribute("style", "transition: d 0.15s ease");
+                    svg.appendChild(path);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

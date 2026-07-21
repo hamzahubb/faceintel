@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Dashboard — Infigo FaceIntel</title>
+    <meta name="description" content="Real-time employee attendance dashboard with card-based status grids, summary statistics, and department groupings.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-sidebar: #4f46e5;
+            --bg-sidebar-hover: #4338ca;
+            --bg-sidebar-active: #3730a3;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --accent: #4f46e5;
+            --accent-light: #e0e7ff;
+            
+            /* Status Colors */
+            --green: #22c55e;
+            --green-bg: #dcfce7;
+            --green-text: #166534;
+            
+            --red: #ef4444;
+            --red-bg: #fee2e2;
+            --red-text: #991b1b;
+            
+            --amber: #f59e0b;
+            --amber-bg: #fef3c7;
+            --amber-text: #92400e;
+            
+            --grey-bg: #f1f5f9;
+            --grey-text: #94a3b8;
+        }
+
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* ── Left Sidebar Navigation ── */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-logo {
+            padding: 24px 32px;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .nav-item.active {
+            background: var(--bg-sidebar-active);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-item-icon {
+            font-size: 18px;
+        }
+
+        .sidebar-footer {
+            padding: 20px 24px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ── Main Panel ── */
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* ── Top Header ── */
+        header {
+            background: #ffffff;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .menu-btn {
+            font-size: 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            color: var(--text-secondary);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .header-icons span:hover {
+            color: var(--text-primary);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent-light);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ── Dashboard Content ── */
+        .content-container {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        /* ── Title and Controls Row ── */
+        .title-controls-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .date-navigator {
+            display: flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .nav-arrow {
+            background: none;
+            border: none;
+            padding: 10px 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .nav-arrow:hover {
+            background: #f8fafc;
+            color: var(--text-primary);
+        }
+
+        .date-input {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            background: none;
+            padding: 8px 12px;
+            color: var(--text-primary);
+            outline: none;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .btn-action {
+            background: var(--accent);
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 700;
+            font-size: 13px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-action:hover {
+            background: var(--bg-sidebar-hover);
+            box-shadow: 0 6px 8px -1px rgba(79, 70, 229, 0.3);
+        }
+
+        /* ── Summary statistics row ── */
+        .summary-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .summary-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.02), 0 2px 4px -1px rgb(0 0 0 / 0.02);
+            border: 1px solid #f1f5f9;
+            transition: transform 0.2s;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .summary-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .summary-icon.green { background: var(--green-bg); color: var(--green); }
+        .summary-icon.red { background: var(--red-bg); color: var(--red); }
+        .summary-icon.amber { background: var(--amber-bg); color: var(--amber); }
+
+        .summary-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .summary-count {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .summary-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* ── Department sections and grids ── */
+        .dept-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .dept-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+
+        .dept-card-count {
+            font-size: 12px;
+            background: #e2e8f0;
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .employee-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.02);
+            border: 1px solid #f1f5f9;
+            transition: all 0.2s;
+        }
+
+        .employee-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        .emp-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .emp-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+
+        .emp-id {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .emp-status-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            width: 100%;
+        }
+
+        .status-pill {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--grey-text);
+            background: var(--grey-bg);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .status-pill.p-pill.active {
+            background: var(--green-bg);
+            color: var(--green-text);
+            border-color: rgba(34, 197, 94, 0.2);
+            box-shadow: 0 2px 6px rgba(34, 197, 94, 0.15);
+        }
+
+        .status-pill.a-pill.active {
+            background: var(--red-bg);
+            color: var(--red-text);
+            border-color: rgba(239, 68, 68, 0.2);
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.15);
+        }
+
+        .status-pill.l-pill.active {
+            background: var(--amber-bg);
+            color: var(--amber-text);
+            border-color: rgba(245, 158, 11, 0.2);
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.15);
+        }
+
+        .emp-time-info {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        /* ── Empty States & Skeletons ── */
+        .empty-state {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 60px 40px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #f1f5f9;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.02);
+            margin-top: 20px;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h4 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .skeleton-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #f1f5f9;
+        }
+
+        .skeleton-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            margin-bottom: 16px;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        .skeleton-text {
+            height: 14px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; }
+            .sidebar-logo { padding: 16px 24px; }
+            .sidebar-nav { flex-direction: row; padding: 12px 16px; overflow-x: auto; gap: 12px; }
+            .nav-item { padding: 8px 16px; font-size: 13px; }
+            .content-container { padding: 24px; }
+            header { display: none; }
+        }
+    
+        /* ── Collapsed Sidebar custom styles ── */
+        .collapse-btn {
+            border: none;
+            background: none;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-top: auto; /* Push to bottom of nav */
+            outline: none;
+        }
+        
+        .collapse-btn:hover {
+            background: var(--bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        .sidebar {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .sidebar.collapsed {
+            width: 80px;
+        }
+        
+        .sidebar.collapsed .sidebar-logo span:nth-child(2),
+        .sidebar.collapsed .nav-item span:nth-child(2),
+        .sidebar.collapsed .sidebar-footer span:nth-child(2) {
+            display: none;
+        }
+        
+        .sidebar.collapsed .sidebar-logo {
+            justify-content: center;
+            padding: 24px 0;
+        }
+        
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+        
+        .sidebar.collapsed .sidebar-footer {
+            justify-content: center;
+            padding: 20px 0;
+        }
+    </style>
+
+</head>
+<body>
+
+    <!-- ── Left Sidebar Navigation ── -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <span>🧠</span>
+            <span>Infigo FaceIntel</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="nav-item-icon">🎭</span>
+                <span>Detection</span>
+            </a>
+            <a href="/register" class="nav-item">
+                <span class="nav-item-icon">👤</span>
+                <span>Register</span>
+            </a>
+            <a href="/attendance" class="nav-item active">
+                <span class="nav-item-icon">📋</span>
+                <span>Attendance</span>
+            </a>
+            <a href="/video_detection" class="nav-item">
+                <span class="nav-item-icon">📹</span>
+                <span>Video Detection</span>
+            </a>
+            <a href="/live_cameras" class="nav-item">
+                <span class="nav-item-icon">🎥</span>
+                <span>Live Cameras</span>
+            </a>
+            <a href="/logs" class="nav-item">
+                <span class="nav-item-icon">📊</span>
+                <span>Logs</span>
+            </a>
+            <!-- Collapse Button -->
+            <button class="collapse-btn" id="collapseBtn">
+                <span class="nav-item-icon collapse-icon">◀</span>
+                <span class="collapse-text">Collapse Sidebar</span>
+            </button>
+        </div>
+        <div class="sidebar-footer">
+            <span>👤</span>
+            <span>FaceIntel System v2.0</span>
+        </div>
+        <a href="#" onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>window.location.href='/login');return false;" class="sidebar-footer" style="margin-top:0;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);cursor:pointer;text-decoration:none;color:rgba(255,255,255,0.7);transition:color 0.2s;" onmouseover="this.style.color='#fca5a5'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+            <span>🚪</span>
+            <span>Logout</span>
+        </a>
+    </div>
+
+    <!-- ── Main Panel ── -->
+    <div class="main-panel">
+        <!-- Top Header -->
+        <header>
+            <div class="header-left">
+                <!-- Removed menu-btn -->
+            </div>
+            <div class="header-right">
+                <!-- Removed bell-icon -->
+                <div class="user-profile">
+                    <input type="file" id="adminAvatarInput" style="display: none;" accept="image/*">
+                    <img src="/static/ameer_hamza.png" alt="Admin Avatar" class="user-avatar" title="Click to upload new photo" style="cursor: pointer;">
+                    <div class="user-info" title="Click to edit name" style="cursor: pointer;">
+                        <span class="user-name">Ameer Hamza</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <div class="content-container">
+            <!-- Title & Controls -->
+            <div class="title-controls-row">
+                <h2 class="page-title">Attendance Dashboard</h2>
+                <div class="controls-row">
+                    <div class="date-navigator">
+                        <button class="nav-arrow" onclick="adjustDate(-1)" aria-label="Previous day">‹</button>
+                        <input type="date" class="date-input" id="dateInput" aria-label="Select date">
+                        <button class="nav-arrow" onclick="adjustDate(1)" aria-label="Next day">›</button>
+                    </div>
+                    <button class="btn-action" onclick="refreshData()">
+                        <span>⟳</span> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Rows -->
+            <div class="summary-row" id="summaryRow">
+                <div class="summary-card">
+                    <div class="summary-icon green">✓</div>
+                    <div class="summary-info">
+                        <div class="summary-count" id="presentCount">—</div>
+                        <div class="summary-label">Present</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon amber">⚠</div>
+                    <div class="summary-info">
+                        <div class="summary-count" id="lateCount">—</div>
+                        <div class="summary-label">Late</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon red">✗</div>
+                    <div class="summary-info">
+                        <div class="summary-count" id="absentCount">—</div>
+                        <div class="summary-label">Absent</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Grid Layout -->
+            <div id="dashboardGrid">
+                <!-- Grouped departments will load here -->
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-icon">📭</div>
+                <h4>No Employee Registered</h4>
+                <p>Register employees in the Register section first to manage dashboard states.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Sidebar Collapse & Expand (LocalStorage) ──
+        (function() {
+            const collapseBtn = document.getElementById('collapseBtn');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (collapseBtn && sidebar) {
+                const collapseIcon = collapseBtn.querySelector('.collapse-icon');
+                const collapseText = collapseBtn.querySelector('.collapse-text');
+                
+                // Helper to update text/icons
+                const updateStates = (collapsed) => {
+                    if (collapseIcon) collapseIcon.textContent = collapsed ? '▶' : '◀';
+                    if (collapseText) collapseText.textContent = collapsed ? 'Expand' : 'Collapse Sidebar';
+                };
+
+                // Load initial state
+                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (isCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    updateStates(true);
+                }
+
+                collapseBtn.addEventListener('click', () => {
+                    const collapsed = sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', collapsed);
+                    updateStates(collapsed);
+                });
+            }
+        })();
+
+        // ── Admin Profile Editor (LocalStorage) ──
+        (function() {
+            const avatarInput = document.getElementById('adminAvatarInput');
+            const avatarImg = document.querySelector('.user-avatar');
+            const userInfo = document.querySelector('.user-info');
+            const userName = document.querySelector('.user-name');
+
+            // Load saved settings on startup
+            const savedAvatar = localStorage.getItem('adminAvatar');
+            if (savedAvatar) {
+                document.querySelectorAll('.user-avatar').forEach(img => img.src = savedAvatar);
+            }
+            const savedName = localStorage.getItem('adminName');
+            if (savedName) {
+                document.querySelectorAll('.user-name').forEach(el => el.textContent = savedName);
+            }
+
+            // Click avatar image to upload a new one
+            if (avatarImg && avatarInput) {
+                avatarImg.addEventListener('click', () => avatarInput.click());
+                avatarInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            const dataUrl = evt.target.result;
+                            localStorage.setItem('adminAvatar', dataUrl);
+                            document.querySelectorAll('.user-avatar').forEach(img => img.src = dataUrl);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+
+            // Click name block to change administrator name
+            if (userInfo && userName) {
+                userInfo.addEventListener('click', () => {
+                    const newName = prompt("Enter new Administrator name:", userName.textContent.trim());
+                    if (newName && newName.trim()) {
+                        localStorage.setItem('adminName', newName.trim());
+                        document.querySelectorAll('.user-name').forEach(el => el.textContent = newName.trim());
+                    }
+                });
+            }
+        })();
+
+        // ── State ──
+        const dateInput = document.getElementById('dateInput');
+        const presentCount = document.getElementById('presentCount');
+        const lateCount = document.getElementById('lateCount');
+        const absentCount = document.getElementById('absentCount');
+        const dashboardGrid = document.getElementById('dashboardGrid');
+        const emptyState = document.getElementById('emptyState');
+        
+        let allEmployees = [];
+
+        // Colors for avatar icons based on initials
+        const AVATAR_COLORS = [
+            '#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', 
+            '#ef4444', '#ec4899', '#8b5cf6', '#6366f1'
+        ];
+
+        // ── Date Management ──
+        function getTodayISO() {
+            const d = new Date();
+            return d.getFullYear() + '-' +
+                   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                   String(d.getDate()).padStart(2, '0');
+        }
+
+        function adjustDate(offset) {
+            const current = new Date(dateInput.value);
+            if (isNaN(current.getTime())) return;
+            current.setDate(current.getDate() + offset);
+            dateInput.value = current.getFullYear() + '-' +
+                             String(current.getMonth() + 1).padStart(2, '0') + '-' +
+                             String(current.getDate()).padStart(2, '0');
+            triggerLoad();
+        }
+
+        // ── Avatar Color Helper ──
+        function getAvatarStyle(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const color = AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+            return `background-color: ${color};`;
+        }
+
+        function getInitials(name) {
+            if (!name) return '??';
+            const parts = name.trim().split(/\s+/);
+            if (parts.length >= 2) {
+                return (parts[0][0] + parts[1][0]).toUpperCase();
+            }
+            return name.substring(0, 2).toUpperCase();
+        }
+
+        // ── Time Helpers ──
+        function formatTime(timeStr) {
+            if (!timeStr || timeStr === '—' || timeStr === '-' || timeStr === 'N/A') return null;
+            try {
+                let date;
+                if (timeStr.includes('T') || timeStr.includes(' ')) {
+                    date = new Date(timeStr);
+                } else {
+                    const parts = timeStr.split(':');
+                    date = new Date();
+                    date.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2] || 0, 10));
+                }
+                if (isNaN(date.getTime())) return timeStr;
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            } catch {
+                return timeStr;
+            }
+        }
+
+        function formatTotalHours(value) {
+            if (!value && value !== 0) return null;
+            if (typeof value === 'string' && value.includes('h')) return value;
+            const num = parseFloat(value);
+            if (isNaN(num)) return null;
+            const h = Math.floor(num);
+            const m = Math.round((num - h) * 60);
+            return `${h}h ${m}m`;
+        }
+
+        // ── UI Loading Skeleton ──
+        function showSkeleton() {
+            dashboardGrid.innerHTML = `
+                <div class="dept-section">
+                    <div class="dept-title"><span style="width:120px;height:16px;background:#e2e8f0;display:inline-block;border-radius:4px;"></span></div>
+                    <div class="card-grid">
+                        ${Array(4).fill(0).map(() => `
+                            <div class="skeleton-card">
+                                <div class="skeleton-avatar"></div>
+                                <div class="skeleton-text" style="width: 60%"></div>
+                                <div class="skeleton-text" style="width: 40%"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            emptyState.style.display = 'none';
+        }
+
+        // ── API Fetching ──
+        async function loadAllEmployees() {
+            try {
+                const resp = await fetch('/api/employees');
+                if (!resp.ok) throw new Error();
+                const data = await resp.json();
+                allEmployees = data.employees || [];
+            } catch (err) {
+                console.error("Failed to load employees:", err);
+                allEmployees = [];
+            }
+        }
+
+        async function loadAttendanceData(date) {
+            showSkeleton();
+            try {
+                // Ensure employee cache is loaded first
+                if (allEmployees.length === 0) {
+                    await loadAllEmployees();
+                }
+
+                if (allEmployees.length === 0) {
+                    dashboardGrid.innerHTML = '';
+                    emptyState.style.display = 'flex';
+                    updateCounts(0, 0, 0);
+                    return;
+                }
+                
+                emptyState.style.display = 'none';
+
+                const resp = await fetch(`/api/attendance?date=${date}`);
+                if (!resp.ok) throw new Error();
+                const data = await resp.json();
+
+                renderDashboard(data.attendance || [], data.summary);
+            } catch (err) {
+                console.error("Failed to load attendance details:", err);
+                renderDashboard([], { present: 0, late: 0, absent: allEmployees.length });
+            }
+        }
+
+        function updateCounts(present, late, absent) {
+            animateCount(presentCount, present);
+            animateCount(lateCount, late);
+            animateCount(absentCount, absent);
+        }
+
+        function animateCount(el, target) {
+            const start = parseInt(el.textContent) || 0;
+            if (start === target) { el.textContent = target; return; }
+            const duration = 400;
+            const startTime = performance.now();
+            function tick(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                el.textContent = Math.round(start + (target - start) * eased);
+                if (progress < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // ── Render Card Grids Grouped By Department ──
+        function renderDashboard(attendanceRecords, summary) {
+            // Map records by ID for fast lookup
+            const attendanceMap = new Map();
+            attendanceRecords.forEach(r => {
+                attendanceMap.set(r.employee_id, r);
+            });
+
+            // Map employees with their status details
+            const mappedEmployees = allEmployees.map(emp => {
+                const record = attendanceMap.get(emp.employee_id);
+                let status = 'absent';
+                let checkIn = null;
+                let checkOut = null;
+                let hours = null;
+
+                if (record) {
+                    status = record.status === 'late' ? 'late' : 'present';
+                    checkIn = formatTime(record.check_in);
+                    checkOut = formatTime(record.check_out);
+                    hours = formatTotalHours(record.total_hours);
+                }
+
+                return {
+                    ...emp,
+                    status,
+                    checkIn,
+                    checkOut,
+                    hours
+                };
+            });
+
+            // Group by department
+            const groups = {};
+            let presentTotal = 0;
+            let lateTotal = 0;
+            let absentTotal = 0;
+
+            mappedEmployees.forEach(emp => {
+                const dept = (emp.department || 'Other').trim();
+                if (!groups[dept]) groups[dept] = [];
+                groups[dept].push(emp);
+
+                if (emp.status === 'present') presentTotal++;
+                else if (emp.status === 'late') lateTotal++;
+                else if (emp.status === 'absent') absentTotal++;
+            });
+
+            updateCounts(presentTotal, lateTotal, absentTotal);
+
+            // Sort department keys alphabetically
+            const depts = Object.keys(groups).sort();
+            
+            let html = '';
+            depts.forEach(dept => {
+                const list = groups[dept];
+                html += `
+                    <div class="dept-section" style="margin-bottom: 32px;">
+                        <div class="dept-title">
+                            <span>📂 ${escapeHtml(dept)}</span>
+                            <span class="dept-card-count">${list.length}</span>
+                        </div>
+                        <div class="card-grid">
+                            ${list.map(emp => renderEmployeeCard(emp)).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            dashboardGrid.innerHTML = html;
+        }
+
+        function renderEmployeeCard(emp) {
+            const initials = getInitials(emp.full_name || emp.name);
+            const avatarStyle = getAvatarStyle(emp.full_name || emp.name);
+            
+            const isP = emp.status === 'present';
+            const isA = emp.status === 'absent';
+            const isL = emp.status === 'late';
+
+            let timeSubtext = '';
+            if (isP || isL) {
+                const inTime = emp.checkIn || '—';
+                const outTime = emp.checkOut ? ` | Out: ${emp.checkOut}` : '';
+                timeSubtext = `<div class="emp-time-info"><span>In: ${inTime}${outTime}</span>${emp.hours ? `<span>Hrs: ${emp.hours}</span>` : ''}</div>`;
+            } else {
+                timeSubtext = `<div class="emp-time-info"><span style="color:var(--text-secondary);">Absent Today</span></div>`;
+            }
+
+            return `
+                <div class="employee-card">
+                    <div class="emp-avatar" style="${avatarStyle}">${initials}</div>
+                    <div class="emp-name" title="${escapeHtml(emp.full_name || emp.name)}">${escapeHtml(emp.full_name || emp.name)}</div>
+                    <div class="emp-id">ID: ${escapeHtml(emp.employee_id)}</div>
+                    <div class="emp-status-row">
+                        <span class="status-pill p-pill ${isP ? 'active' : ''}" title="Present">P</span>
+                        <span class="status-pill a-pill ${isA ? 'active' : ''}" title="Absent">A</span>
+                        <span class="status-pill l-pill ${isL ? 'active' : ''}" title="Late">L</span>
+                    </div>
+                    ${timeSubtext}
+                </div>
+            `;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function triggerLoad() {
+            loadAttendanceData(dateInput.value);
+        }
+
+        function refreshData() {
+            triggerLoad();
+        }
+
+        // ── Events ──
+        dateInput.addEventListener('change', triggerLoad);
+
+        // ── Init ──
+        (async function init() {
+            dateInput.value = getTodayISO();
+            await loadAllEmployees();
+            triggerLoad();
+        })();
+    </script>
+</body>
+</html>
