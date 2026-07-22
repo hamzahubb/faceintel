@@ -15,22 +15,23 @@ from database import (
     get_all_users_with_embedding, get_all_employees, save_employee
 )
 from recognizer import get_embedding, cosine_similarity
-from liveness import check_texture
+from liveness import check_texture, check_3d_depth_liveness
 
 auth_bp = Blueprint("auth", __name__)
 
-# Cosine similarity threshold for face login matching
-FACE_LOGIN_THRESHOLD = 0.60
+# Cosine similarity threshold for face login matching (0.48 is optimal for ArcFace)
+FACE_LOGIN_THRESHOLD = 0.48
 
 
 def _detect_and_get_embedding(img: np.ndarray):
-    """Detect face, crop region, extract 512-d ArcFace embedding, and return (embedding, bbox, blendshapes)."""
+    """Detect face, crop region, extract 512-d ArcFace embedding, and return (embedding, bbox, blendshapes, landmarks)."""
     if img is None or img.size == 0:
-        return None, None, {}
+        return None, None, {}, []
 
     bbox = None
     face_crop = None
     blendshapes = {}
+    landmarks = []
 
     # 1. Try MediaPipe detector
     try:
@@ -41,6 +42,7 @@ def _detect_and_get_embedding(img: np.ndarray):
                 largest = max(faces, key=lambda f: f["bounding_box"]["width"] * f["bounding_box"]["height"])
                 bbox = largest["bounding_box"]
                 blendshapes = largest.get("blendshapes", {})
+                landmarks = largest.get("landmarks", [])
                 face_crop = main_app.crop_face(img, bbox)
     except Exception as e:
         print(f"[Auth] MediaPipe detection error: {e}")
@@ -69,9 +71,9 @@ def _detect_and_get_embedding(img: np.ndarray):
 
     if face_crop is not None and face_crop.size > 0:
         emb = get_embedding(face_crop)
-        return emb, bbox, blendshapes
+        return emb, bbox, blendshapes, landmarks
 
-    return None, None, {}
+    return None, None, {}, []
 
 
 # ──────────────────────────────────────────────────────────────
@@ -148,7 +150,7 @@ def api_signup():
             img_array = np.frombuffer(img_data, dtype=np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
             if img is not None:
-                embedding, _, _ = _detect_and_get_embedding(img)
+                embedding, _, _, _ = _detect_and_get_embedding(img)
                 if embedding is not None:
                     face_embedding_bytes = embedding.tobytes()
         except Exception as e:
@@ -233,8 +235,8 @@ def api_face_login():
         if img is None:
             return jsonify({"error": "Invalid image data"}), 400
 
-        # Extract face embedding, bbox, and blendshapes
-        embedding, bbox, blendshapes = _detect_and_get_embedding(img)
+        # Extract face embedding, bbox, blendshapes, landmarks
+        embedding, bbox, blendshapes, landmarks = _detect_and_get_embedding(img)
         if embedding is None:
             return jsonify({
                 "success": False,
@@ -242,22 +244,33 @@ def api_face_login():
                 "error": "No face detected in camera view.",
             }), 400
 
-        # 1. Perform anti-spoofing screen & texture liveness check on face crop
+        # 1. Perform 3D Depth Variance Anti-Spoofing check
+        if not check_3d_depth_liveness(landmarks):
+            print("[Auth Liveness] 2D Flat Screen/Photo Rejected via 3D Depth Analysis")
+            return jsonify({
+                "success": False,
+                "face_detected": True,
+                "bbox": bbox,
+                "error": "Liveness check failed. Flat 2D photo or phone screen detected.",
+                "confidence": 0.0
+            }), 200
+
+        # 2. Perform texture focus check
         import app as main_app
         face_crop = main_app.crop_face(img, bbox)
         if face_crop is not None:
             texture_res = check_texture(face_crop)
             if not texture_res["texture_pass"]:
-                print(f"[Auth Liveness] Anti-spoofing alert: screen/photo rejected (Lap: {texture_res['laplacian_var']}, LBP: {texture_res['lbp_var']}, Skin: {texture_res.get('skin_ratio')})")
+                print(f"[Auth Liveness] Texture check failed - Lap: {texture_res['laplacian_var']}")
                 return jsonify({
                     "success": False,
                     "face_detected": True,
                     "bbox": bbox,
-                    "error": "Liveness verification failed (anti-spoofing alert). Screen photo/video rejected.",
+                    "error": "Liveness verification failed. Extremely blurry or flat image.",
                     "confidence": 0.0
                 }), 200
 
-        # 2. Perform Eye-Blink Verification (Session-Based Anti-Spoofing)
+        # 3. Eye-Blink Tracking (Session-Based Anti-Spoofing)
         blink_left = blendshapes.get("eyeBlinkLeft", 0.0)
         blink_right = blendshapes.get("eyeBlinkRight", 0.0)
         avg_blink = (blink_left + blink_right) / 2.0

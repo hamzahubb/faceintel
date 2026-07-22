@@ -288,9 +288,14 @@ def process_frame():
             face_crop = crop_face(frame, face_data["bounding_box"])
 
             # Liveness Check (anti-spoofing)
+            from liveness import check_liveness, check_3d_depth_liveness
+            is_3d_real = check_3d_depth_liveness(face_data.get("landmarks", []))
             liveness_res = check_liveness(track.blink_tracker, face_data["blendshapes"], face_crop)
             is_live = liveness_res["is_live"]
             liveness_status = liveness_res["status"]
+            if not is_3d_real:
+                liveness_status = "SPOOF"
+                is_live = False
 
             # Emotions
             scores = classify_emotions(face_data["blendshapes"])
