@@ -66,14 +66,13 @@ def init_tables():
 
     cursor = conn.cursor()
     try:
-        # Employees table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS employees (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 employee_id VARCHAR(50) UNIQUE NOT NULL,
                 full_name VARCHAR(100) NOT NULL,
                 department VARCHAR(100) DEFAULT NULL,
-                embedding LONGBLOB NOT NULL,
+                embedding LONGBLOB DEFAULT NULL,
                 image_count INT DEFAULT 0,
                 registered_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -208,21 +207,28 @@ def get_employee_list() -> list[dict]:
 
 
 def delete_employee(employee_id: str) -> bool:
-    """Delete an employee by their employee_id."""
+    """Delete an employee and their corresponding user account by their employee_id."""
     conn = get_connection()
     if conn is None:
         return False
 
     cursor = conn.cursor()
     try:
+        # Delete from employees
         cursor.execute("DELETE FROM employees WHERE employee_id = %s", (employee_id,))
+        emp_deleted = cursor.rowcount > 0
+        
+        # Delete from users
+        cursor.execute("DELETE FROM users WHERE username = %s", (employee_id,))
+        user_deleted = cursor.rowcount > 0
+        
         conn.commit()
-        deleted = cursor.rowcount > 0
+        deleted = emp_deleted or user_deleted
         if deleted:
-            print(f"[DB] Employee '{employee_id}' deleted.")
+            print(f"[DB] Deleted employee: {emp_deleted}, user account: {user_deleted} for '{employee_id}'")
         return deleted
     except Error as e:
-        print(f"[DB Error] Failed to delete employee: {e}")
+        print(f"[DB Error] Failed to delete employee/user: {e}")
         return False
     finally:
         cursor.close()

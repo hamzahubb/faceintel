@@ -12,14 +12,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from database import (
     create_user, get_user_by_username, get_user_by_id,
-    get_all_users_with_embedding, get_all_employees
+    get_all_users_with_embedding, get_all_employees, save_employee
 )
 from recognizer import get_embedding, cosine_similarity
 
 auth_bp = Blueprint("auth", __name__)
 
 # Cosine similarity threshold for face login matching
-FACE_LOGIN_THRESHOLD = 0.45
+FACE_LOGIN_THRESHOLD = 0.60
 
 
 def _detect_and_get_embedding(img: np.ndarray):
@@ -154,6 +154,22 @@ def api_signup():
     success = create_user(username, pw_hash, full_name, face_embedding_bytes)
     if not success:
         return jsonify({"error": "Failed to create account. Please try again."}), 500
+
+    # Also register as employee so they appear in "registered employees" list
+    try:
+        image_count = 1 if face_embedding_bytes is not None else 0
+        save_employee(
+            employee_id=username,
+            full_name=full_name,
+            department="User Account",
+            embedding_bytes=face_embedding_bytes,
+            image_count=image_count
+        )
+        # Clear main app's employee cache
+        import app as main_app
+        main_app._cache_last_refresh = 0
+    except Exception as e:
+        print(f"[Auth Error] Failed to create corresponding employee: {e}")
 
     user = get_user_by_username(username)
     if user:
