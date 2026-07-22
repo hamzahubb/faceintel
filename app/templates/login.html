@@ -745,6 +745,7 @@
         const placeholder = document.getElementById('faceWebcamPlaceholder');
         const video = document.getElementById('faceVideo');
         try {
+            fetch('/api/auth/reset_face_session', { method: 'POST' }).catch(err => {});
             faceLoginStream = await navigator.mediaDevices.getUserMedia({
                 video: { width: 640, height: 480, facingMode: 'user' }
             });
@@ -803,7 +804,7 @@
         }
     }
 
-    function drawFaceOverlay(bbox, isRecognized, name, confidence) {
+    function drawFaceOverlay(bbox, isRecognized, name, confidence, statusType) {
         const video = document.getElementById('faceVideo');
         const canvas = document.getElementById('faceCanvas');
         if (!canvas || !video || !bbox) return;
@@ -813,7 +814,6 @@
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Calculate box dimensions (taking video mirroring into account)
         const scaleX = canvas.width / (video.videoWidth || 640);
         const scaleY = canvas.height / (video.videoHeight || 480);
 
@@ -822,19 +822,37 @@
         const w = bbox.width * scaleX;
         const h = bbox.height * scaleY;
 
-        // Draw bounding box
-        ctx.strokeStyle = isRecognized ? '#22c55e' : '#818cf8';
+        let strokeCol = '#818cf8';
+        let shadowCol = 'rgba(129, 140, 248, 0.6)';
+        let fillCol = 'rgba(30, 27, 75, 0.9)';
+        let labelText = `👤 Scanning...`;
+
+        if (isRecognized) {
+            strokeCol = '#22c55e';
+            shadowCol = 'rgba(34, 197, 94, 0.6)';
+            fillCol = 'rgba(22, 101, 52, 0.9)';
+            labelText = `✔ ${name} (${confidence}%)`;
+        } else if (statusType === 'blink') {
+            strokeCol = '#f59e0b';
+            shadowCol = 'rgba(245, 158, 11, 0.6)';
+            fillCol = 'rgba(120, 53, 15, 0.9)';
+            labelText = `👁️ Blink Eyes to Verify Liveness`;
+        } else if (statusType === 'spoof') {
+            strokeCol = '#ef4444';
+            shadowCol = 'rgba(239, 68, 68, 0.6)';
+            fillCol = 'rgba(127, 29, 29, 0.9)';
+            labelText = `⚠️ SPOOF DETECTED (Screen/Photo)`;
+        }
+
+        ctx.strokeStyle = strokeCol;
         ctx.lineWidth = 3;
-        ctx.shadowColor = isRecognized ? 'rgba(34, 197, 94, 0.6)' : 'rgba(129, 140, 248, 0.6)';
+        ctx.shadowColor = shadowCol;
         ctx.shadowBlur = 10;
 
-        // Rounded box
         ctx.beginPath();
         ctx.roundRect(x, y, w, h, 12);
         ctx.stroke();
 
-        // Label pill
-        const labelText = isRecognized ? `✔ ${name} (${confidence}%)` : `👤 Scanning...`;
         ctx.font = 'bold 13px Outfit, sans-serif';
         const textWidth = ctx.measureText(labelText).width;
         const labelW = textWidth + 20;
@@ -842,7 +860,7 @@
         const labelX = x + (w - labelW) / 2;
         const labelY = Math.max(10, y - labelH - 6);
 
-        ctx.fillStyle = isRecognized ? 'rgba(22, 101, 52, 0.9)' : 'rgba(30, 27, 75, 0.9)';
+        ctx.fillStyle = fillCol;
         ctx.beginPath();
         ctx.roundRect(labelX, labelY, labelW, labelH, 8);
         ctx.fill();
@@ -894,23 +912,31 @@
 
             document.getElementById('scanLine').classList.remove('active');
 
-            if (data.bbox) {
-                drawFaceOverlay(data.bbox, data.success, data.employee_name, data.confidence);
-            } else {
-                clearFaceCanvas();
-            }
-
             if (data.success) {
+                drawFaceOverlay(data.bbox, true, data.employee_name, data.confidence, 'recognized');
                 stopAutoScanLoop();
                 showStatus('loginStatus', `✨ ${data.message} (${data.confidence}% match)`, 'success');
                 btn.disabled = true;
                 btn.innerHTML = '✔ Recognized! Logging in...';
                 setTimeout(() => window.location.href = '/', 900);
+            } else if (data.blink_required) {
+                drawFaceOverlay(data.bbox, false, null, 0, 'blink');
+                showStatus('loginStatus', '👁️ Real face required — Please blink your eyes to verify liveness.', 'info');
+                if (isManualClick) {
+                    btn.disabled = false;
+                    btn.textContent = '👁️ Blink Eyes & Scan';
+                }
+                isLoginProcessing = false;
             } else {
-                // Unrecognized face — offer direct registration link with the captured frame!
+                if (data.bbox) {
+                    drawFaceOverlay(data.bbox, false, null, 0, 'spoof');
+                } else {
+                    clearFaceCanvas();
+                }
+
                 const statusDiv = document.getElementById('loginStatus');
                 statusDiv.innerHTML = `
-                    <span>Face not recognized. New to the system? </span>
+                    <span>${data.error || 'Face not recognized.'} New to the system? </span>
                     <a onclick="registerWithScannedFace('${imageData.replace(/'/g, "\\'")}')" style="color: #a5b4fc; font-weight: 700; text-decoration: underline; cursor: pointer; margin-left: 4px;">
                         ➕ Register Account with this Face
                     </a>

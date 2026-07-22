@@ -24,12 +24,13 @@ FACE_LOGIN_THRESHOLD = 0.60
 
 
 def _detect_and_get_embedding(img: np.ndarray):
-    """Detect face, crop region, extract 512-d ArcFace embedding, and return (embedding, bbox)."""
+    """Detect face, crop region, extract 512-d ArcFace embedding, and return (embedding, bbox, blendshapes)."""
     if img is None or img.size == 0:
-        return None, None
+        return None, None, {}
 
     bbox = None
     face_crop = None
+    blendshapes = {}
 
     # 1. Try MediaPipe detector
     try:
@@ -39,6 +40,7 @@ def _detect_and_get_embedding(img: np.ndarray):
             if faces:
                 largest = max(faces, key=lambda f: f["bounding_box"]["width"] * f["bounding_box"]["height"])
                 bbox = largest["bounding_box"]
+                blendshapes = largest.get("blendshapes", {})
                 face_crop = main_app.crop_face(img, bbox)
     except Exception as e:
         print(f"[Auth] MediaPipe detection error: {e}")
@@ -67,9 +69,9 @@ def _detect_and_get_embedding(img: np.ndarray):
 
     if face_crop is not None and face_crop.size > 0:
         emb = get_embedding(face_crop)
-        return emb, bbox
+        return emb, bbox, blendshapes
 
-    return None, None
+    return None, None, {}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -146,7 +148,7 @@ def api_signup():
             img_array = np.frombuffer(img_data, dtype=np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
             if img is not None:
-                embedding, _ = _detect_and_get_embedding(img)
+                embedding, _, _ = _detect_and_get_embedding(img)
                 if embedding is not None:
                     face_embedding_bytes = embedding.tobytes()
         except Exception as e:
@@ -231,8 +233,8 @@ def api_face_login():
         if img is None:
             return jsonify({"error": "Invalid image data"}), 400
 
-        # Extract face embedding with proper face cropping & return bbox
-        embedding, bbox = _detect_and_get_embedding(img)
+        # Extract face embedding, bbox, and blendshapes
+        embedding, bbox, blendshapes = _detect_and_get_embedding(img)
         if embedding is None:
             return jsonify({
                 "success": False,
@@ -240,20 +242,49 @@ def api_face_login():
                 "error": "No face detected in camera view.",
             }), 400
 
-        # Perform anti-spoofing texture liveness check on face crop
+        # 1. Perform anti-spoofing screen & texture liveness check on face crop
         import app as main_app
         face_crop = main_app.crop_face(img, bbox)
         if face_crop is not None:
             texture_res = check_texture(face_crop)
             if not texture_res["texture_pass"]:
-                print(f"[Auth Liveness] Spoof rejected - Laplacian: {texture_res['laplacian_var']}, LBP: {texture_res['lbp_var']}")
+                print(f"[Auth Liveness] Anti-spoofing alert: screen/photo rejected (Lap: {texture_res['laplacian_var']}, LBP: {texture_res['lbp_var']}, Skin: {texture_res.get('skin_ratio')})")
                 return jsonify({
                     "success": False,
                     "face_detected": True,
                     "bbox": bbox,
-                    "error": "Liveness check failed (anti-spoofing alert). Please present a real face.",
+                    "error": "Liveness verification failed (anti-spoofing alert). Screen photo/video rejected.",
                     "confidence": 0.0
-                }), 401
+                }), 200
+
+        # 2. Perform Eye-Blink Verification (Session-Based Anti-Spoofing)
+        blink_left = blendshapes.get("eyeBlinkLeft", 0.0)
+        blink_right = blendshapes.get("eyeBlinkRight", 0.0)
+        avg_blink = (blink_left + blink_right) / 2.0
+
+        eye_was_closed = session.get("face_eye_closed", False)
+        blink_count = session.get("face_blink_count", 0)
+
+        # Detect eye blink transition (open -> closed -> open)
+        if not eye_was_closed and avg_blink >= 0.35:
+            session["face_eye_closed"] = True
+        elif eye_was_closed and avg_blink <= 0.20:
+            session["face_eye_closed"] = False
+            blink_count += 1
+            session["face_blink_count"] = blink_count
+            print(f"[Auth Liveness] 👁️ Live eye blink verified! Total blinks: {blink_count}")
+
+        # Require at least 1 eye blink to prevent static photo or screen spoofing
+        if blink_count < 1:
+            return jsonify({
+                "success": False,
+                "face_detected": True,
+                "bbox": bbox,
+                "blink_required": True,
+                "blink_count": 0,
+                "error": "👁️ Real face required — Please blink your eyes to verify liveness.",
+                "confidence": 0.0
+            }), 200
 
         best_match_name = None
         best_user_id = None
@@ -296,6 +327,9 @@ def api_face_login():
             session["user_id"] = best_user_id
             session["username"] = best_username
             session["full_name"] = best_match_name
+            # Reset blink tracking state
+            session.pop("face_eye_closed", None)
+            session.pop("face_blink_count", None)
             return jsonify({
                 "success": True,
                 "face_detected": True,
@@ -316,6 +350,14 @@ def api_face_login():
     except Exception as e:
         print(f"[Auth] Face login error: {e}")
         return jsonify({"error": "Face login processing failed."}), 500
+
+
+@auth_bp.route("/api/auth/reset_face_session", methods=["POST"])
+def api_reset_face_session():
+    """Reset eye blink session state when starting face login."""
+    session["face_eye_closed"] = False
+    session["face_blink_count"] = 0
+    return jsonify({"success": True})
 
 
 @auth_bp.route("/api/auth/logout", methods=["POST"])
