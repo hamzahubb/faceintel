@@ -26,6 +26,7 @@ from database import (
     get_employee_attendance_today,
 )
 from tracker import MultiFaceTracker
+from liveness import check_texture
 
 from surveillance.recognition_engine import RecognitionEngine
 from surveillance.expression_engine import ExpressionEngine
@@ -156,6 +157,27 @@ class VideoProcessor:
         # Crop the face for recognition
         face_crop = self.engine.crop_face(frame, bbox)
 
+        # --- Liveness Check (anti-spoofing) ---
+        if self.config.texture_liveness_enabled and face_crop is not None:
+            texture_res = check_texture(face_crop)
+            if not texture_res["texture_pass"]:
+                if track.last_recognized_person.get("is_recognized", False):
+                    logger.warning(
+                        "⚠️ SPOOF DETECTED [%s] for %s — Flat face texture rejected (Lap: %.2f, LBP: %.2f)",
+                        self.camera_name,
+                        track.last_recognized_person["employee_name"],
+                        texture_res["laplacian_var"],
+                        texture_res["lbp_var"]
+                    )
+                track.last_recognized_person = {
+                    "employee_id": None,
+                    "employee_name": "Spoof Rejected",
+                    "department": None,
+                    "recognition_confidence": 0.0,
+                    "is_recognized": False,
+                }
+                return
+
         # --- Throttled recognition ---
         track.recognition_frame_counter += 1
         run_recognition = (
@@ -175,8 +197,15 @@ class VideoProcessor:
                     "recognition_confidence": match["confidence"],
                     "is_recognized": True,
                 }
+            else:
+                track.last_recognized_person = {
+                    "employee_id": None,
+                    "employee_name": "Unknown Person",
+                    "department": None,
+                    "recognition_confidence": 0.0,
+                    "is_recognized": False,
+                }
 
-        # If person is not recognized, nothing more to do
         person = track.last_recognized_person
         if not person.get("is_recognized", False):
             return

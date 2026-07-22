@@ -1274,7 +1274,12 @@
                 data.faces.forEach((face, idx) => {
                     debugHTML += `Face ${idx}: name=${face.employee_name}, x=${face.bounding_box.originX}, w=${face.bounding_box.width}, dominant=${face.dominant ? face.dominant.label : 'null'}<br>`;
                     const bb = face.bounding_box;
-                    const color = face.dominant ? face.dominant.color : '#6366f1';
+                    let color = face.dominant ? face.dominant.color : '#6366f1';
+                    if (face.liveness_status === 'SPOOF') {
+                        color = '#ef4444'; // Red for spoof
+                    } else if (face.liveness_status === 'VERIFYING') {
+                        color = '#f59e0b'; // Amber for verifying
+                    }
                     
                     // Draw bounding box
                     ctx.strokeStyle = color;
@@ -1328,9 +1333,14 @@
                     if (face.dominant) {
                         // Build label: include employee name if recognized, liveness status, and expression
                         let namePart = face.is_recognized ? face.employee_name : 'Stranger';
+                        if (face.liveness_status === 'SPOOF') {
+                            namePart = '⚠️ SPOOF DETECTED';
+                        } else if (face.liveness_status === 'VERIFYING') {
+                            namePart = '⏳ Verifying Liveness...';
+                        }
                         
                         let attendanceStatusPart = '';
-                        if (face.is_recognized && face.attendance) {
+                        if (face.is_recognized && face.attendance && face.liveness_status === 'LIVE') {
                             if (face.attendance.attendance_action === 'check_in') {
                                 attendanceStatusPart = ' (Checked In)';
                             } else if (face.attendance.attendance_action === 'checked_out') {
@@ -1356,13 +1366,17 @@
                         ctx.roundRect(pillX, pillY, pillW, pillH, 8);
                         ctx.fill();
                         
-                        // Pill border — green if recognized, red if unknown, purple if checked out
+                        // Pill border — green if recognized, red if unknown/spoof, orange if verifying, purple if checked out
                         let borderCol = '#ef4444';
-                        if (face.is_recognized) {
+                        if (face.liveness_status === 'SPOOF') {
+                            borderCol = '#ef4444';
+                        } else if (face.liveness_status === 'VERIFYING') {
+                            borderCol = '#f59e0b';
+                        } else if (face.is_recognized) {
                             borderCol = face.attendance && face.attendance.attendance_action === 'checked_out' ? '#6366f1' : '#22c55e';
                         }
                         ctx.strokeStyle = borderCol;
-                        ctx.lineWidth = 1;
+                        ctx.lineWidth = 1.5;
                         ctx.stroke();
 
                         // Unmirror only the text drawing so it prints left-to-right

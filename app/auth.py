@@ -15,6 +15,7 @@ from database import (
     get_all_users_with_embedding, get_all_employees, save_employee
 )
 from recognizer import get_embedding, cosine_similarity
+from liveness import check_texture
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -238,6 +239,21 @@ def api_face_login():
                 "face_detected": False,
                 "error": "No face detected in camera view.",
             }), 400
+
+        # Perform anti-spoofing texture liveness check on face crop
+        import app as main_app
+        face_crop = main_app.crop_face(img, bbox)
+        if face_crop is not None:
+            texture_res = check_texture(face_crop)
+            if not texture_res["texture_pass"]:
+                print(f"[Auth Liveness] Spoof rejected - Laplacian: {texture_res['laplacian_var']}, LBP: {texture_res['lbp_var']}")
+                return jsonify({
+                    "success": False,
+                    "face_detected": True,
+                    "bbox": bbox,
+                    "error": "Liveness check failed (anti-spoofing alert). Please present a real face.",
+                    "confidence": 0.0
+                }), 401
 
         best_match_name = None
         best_user_id = None

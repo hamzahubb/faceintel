@@ -41,6 +41,7 @@ from werkzeug.utils import secure_filename
 from gesture import WaveTracker
 from tracker import MultiFaceTracker
 from auth import auth_bp
+from liveness import check_liveness
 
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -286,6 +287,11 @@ def process_frame():
             # Crop face for embedding
             face_crop = crop_face(frame, face_data["bounding_box"])
 
+            # Liveness Check (anti-spoofing)
+            liveness_res = check_liveness(track.blink_tracker, face_data["blendshapes"], face_crop)
+            is_live = liveness_res["is_live"]
+            liveness_status = liveness_res["status"]
+
             # Emotions
             scores = classify_emotions(face_data["blendshapes"])
             dominant = get_dominant_emotion(scores) if scores else None
@@ -298,7 +304,15 @@ def process_frame():
                     track.recognition_frame_counter == 0
                 )
 
-                if should_recognize and face_crop is not None:
+                if liveness_status == "SPOOF":
+                    track.last_recognized_person = {
+                        "employee_id": None,
+                        "employee_name": "Spoof Rejected",
+                        "department": None,
+                        "recognition_confidence": 0.0,
+                        "is_recognized": False,
+                    }
+                elif should_recognize and face_crop is not None:
                     track.recognition_frame_counter = 0
                     try:
                         embedding = get_embedding(face_crop)
@@ -347,7 +361,8 @@ def process_frame():
                 "check_out_time": None,
             }
 
-            if person_info["is_recognized"]:
+            # Only process check-in/check-out if the track is verified as LIVE
+            if person_info["is_recognized"] and is_live:
                 emp_id = person_info["employee_id"]
                 today_record = _get_cached_attendance_today(emp_id)
 
@@ -391,6 +406,8 @@ def process_frame():
                 "scores": scores,
                 "dominant": dominant,
                 "attendance": attendance_info,
+                "is_live": is_live,
+                "liveness_status": liveness_status,
                 **person_info,
             })
 
