@@ -121,10 +121,37 @@ def init_tables():
 
         conn.commit()
         print("[DB] Tables initialized successfully.")
+        sync_users_to_employees()
         return True
     except Error as e:
         print(f"[DB Error] Failed to create tables: {e}")
         return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def sync_users_to_employees():
+    """Ensure all accounts in `users` table exist in `employees` table."""
+    conn = get_connection()
+    if conn is None:
+        return
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    try:
+        cursor.execute("SELECT username, full_name, face_embedding, created_at FROM users")
+        users = cursor.fetchall()
+        for u in users:
+            username = u["username"]
+            full_name = u["full_name"]
+            emb = u.get("face_embedding")
+            created_at = u.get("created_at")
+            cursor.execute("""
+                INSERT IGNORE INTO employees (employee_id, full_name, department, embedding, image_count, registered_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (username, full_name, "User Account", emb, 1 if emb else 0, created_at or datetime.now()))
+        conn.commit()
+    except Exception as e:
+        print(f"[DB Sync Error] {e}")
     finally:
         cursor.close()
         conn.close()
