@@ -151,33 +151,48 @@ def cosine_similarity(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
 
 def compare_with_employees(embedding: np.ndarray, employees: list[dict]) -> dict | None:
     """
-    Compare a face embedding against all stored employee embeddings.
+    Compare a face embedding against all stored employee embeddings
+    using high-speed vectorized matrix BLAS operations.
 
     Args:
-        embedding: 512-d numpy vector of the detected face.
+        embedding: 512-d numpy vector of the detected face (L2-normalized).
         employees: list of employee dicts from database (each has 'embedding' as bytes).
 
     Returns:
         Best match dict with keys: employee_id, full_name, department, confidence.
         Or None if no match meets the threshold.
     """
-    best_match = None
-    best_score = -1.0
+    if not employees or embedding is None or len(embedding) != EMBEDDING_DIM:
+        return None
+
+    valid_employees = []
+    matrix_rows = []
 
     for emp in employees:
-        # Deserialize stored embedding from bytes
-        stored_emb = np.frombuffer(emp["embedding"], dtype=np.float32)
+        if emp.get("embedding"):
+            try:
+                stored = np.frombuffer(emp["embedding"], dtype=np.float32)
+                if stored.shape[0] == EMBEDDING_DIM:
+                    norm_val = norm(stored)
+                    if norm_val > 0:
+                        stored = stored / norm_val
+                    matrix_rows.append(stored)
+                    valid_employees.append(emp)
+            except Exception:
+                pass
 
-        if stored_emb.shape[0] != EMBEDDING_DIM:
-            continue
+    if not matrix_rows:
+        return None
 
-        score = cosine_similarity(embedding, stored_emb)
+    # Vectorized C-speed matrix dot product for instant matching across all profiles
+    matrix = np.vstack(matrix_rows)  # Shape (N, 512)
+    scores = np.dot(matrix, embedding)  # Shape (N,)
 
-        if score > best_score:
-            best_score = score
-            best_match = emp
+    best_idx = int(np.argmax(scores))
+    best_score = float(scores[best_idx])
 
-    if best_match and best_score >= MATCH_THRESHOLD:
+    if best_score >= MATCH_THRESHOLD:
+        best_match = valid_employees[best_idx]
         return {
             "employee_id": best_match["employee_id"],
             "full_name": best_match["full_name"],
