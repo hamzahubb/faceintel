@@ -165,25 +165,37 @@ def check_3d_depth_liveness(landmarks: list) -> bool:
         return True
 
 
+def _compute_glare_ratio(face_bgr: np.ndarray) -> float:
+    """Detect flat specular glare spots from phone screen glass or photo paper."""
+    if face_bgr is None or face_bgr.size == 0:
+        return 0.0
+    gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
+    glare_pixels = np.count_nonzero(gray >= 248)
+    return float(glare_pixels / gray.size)
+
+
 def check_texture(face_crop: np.ndarray) -> dict:
     """
     Run texture-based anti-spoofing checks on a face crop.
-    Verifies focus sharpness (Laplacian) and micro-texture (LBP).
+    Verifies focus sharpness (Laplacian), micro-texture (LBP), and screen glare.
     """
     if face_crop is None or face_crop.size == 0:
-        return {"laplacian_var": 0.0, "lbp_var": 0.0, "texture_pass": True}
+        return {"laplacian_var": 0.0, "lbp_var": 0.0, "glare_ratio": 0.0, "texture_pass": True}
 
     lap_var = _compute_laplacian_variance(face_crop)
     lbp_var = _compute_lbp_variance(face_crop)
+    glare_ratio = _compute_glare_ratio(face_crop)
 
     # Robust thresholds that do NOT fail real faces under indoor lighting
     pass_lap = lap_var >= 8.0
     pass_lbp = lbp_var >= 0.15
-    texture_pass = pass_lap and pass_lbp
+    pass_glare = glare_ratio <= 0.12
+    texture_pass = pass_lap and pass_lbp and pass_glare
 
     return {
         "laplacian_var": round(lap_var, 2),
         "lbp_var": round(lbp_var, 2),
+        "glare_ratio": round(glare_ratio, 3),
         "texture_pass": texture_pass,
     }
 

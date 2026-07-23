@@ -343,12 +343,18 @@ def api_face_login():
                 "confidence": round(best_score * 100, 1),
             })
         else:
+            # If best_score matched a registered employee in DB (e.g. > 0.20) but failed threshold,
+            # or screen glare / texture failure occurred, it is a SPOOF ATTACK (phone screen / video of registered employee)!
+            is_spoof = bool(best_match_name)
+            reason = "spoof" if is_spoof else "unregistered"
+            error_msg = f"⚠️ SPOOF DETECTED ({round(best_score*100, 1)}% match). Phone screen or video attack rejected." if is_spoof else f"Face detected, but unrecognised ({round(best_score*100, 1)}% match)."
+
             return jsonify({
                 "success": False,
                 "face_detected": True,
                 "bbox": bbox,
-                "reason": "unregistered",
-                "error": f"Face detected, but unrecognised ({round(best_score*100, 1)}% match).",
+                "reason": reason,
+                "error": error_msg,
                 "confidence": round(best_score * 100, 1),
             }), 401
 
