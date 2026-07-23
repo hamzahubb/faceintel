@@ -852,9 +852,9 @@
         stopAutoScanLoop();
         autoScanTimer = setInterval(() => {
             if (!isLoginProcessing && faceLoginStream) {
-                runFaceScan(false); // background scan
+                runFaceScan(false); // fast background scan (300ms)
             }
-        }, 1200);
+        }, 300);
     }
 
     function stopAutoScanLoop() {

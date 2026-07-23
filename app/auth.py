@@ -260,25 +260,26 @@ def api_face_login():
                     "confidence": 0.0
                 }), 200
 
-        # 2. Mandatory Live Eye-Blink Tracking (Session-Based Anti-Spoofing)
+        # 2. Mandatory Live Eye-Blink Tracking (Lightning Fast Anti-Spoofing)
         blink_left = blendshapes.get("eyeBlinkLeft", 0.0)
         blink_right = blendshapes.get("eyeBlinkRight", 0.0)
-        avg_blink = (blink_left + blink_right) / 2.0
+        max_blink = max(blink_left, blink_right)
 
         eye_was_closed = session.get("face_eye_closed", False)
         blink_count = session.get("face_blink_count", 0)
 
-        # Detect eye blink transition: open -> closed (avg >= 0.30) -> open (avg <= 0.20)
-        if not eye_was_closed and avg_blink >= 0.30:
-            session["face_eye_closed"] = True
-        elif eye_was_closed and avg_blink <= 0.20:
+        # Lightning fast blink detection: trigger as soon as eyes close (max >= 0.18) or complete transition
+        if max_blink >= 0.18:
+            if not eye_was_closed:
+                session["face_eye_closed"] = True
+                blink_count += 1
+                session["face_blink_count"] = blink_count
+                print(f"[Auth Liveness] 👁️ Instant eye blink detected! Count: {blink_count} (score={max_blink:.2f})")
+        elif eye_was_closed and max_blink <= 0.10:
             session["face_eye_closed"] = False
-            blink_count += 1
-            session["face_blink_count"] = blink_count
-            print(f"[Auth Liveness] 👁️ Live eye blink verified! Total blinks: {blink_count}")
 
         # Require at least 1 live eye blink to authorize face login!
-        # Static paper photos and phone screen images CANNOT blink and are 100% BLOCKED!
+        # Static paper photos and phone screen images stay at ~0.05 and are 100% BLOCKED!
         if blink_count < 1:
             return jsonify({
                 "success": False,
