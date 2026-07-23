@@ -252,9 +252,25 @@ def api_face_login():
                 "face_detected": True,
                 "bbox": bbox,
                 "reason": "spoof",
-                "error": "Liveness check failed. Flat 2D photo or phone screen detected.",
+                "error": "⚠️ Anti-Spoofing Alert: Flat 2D photo or phone screen rejected.",
                 "confidence": 0.0
             }), 200
+
+        # 2. Perform Texture & Sharpness Check (blocks digital screen moiré & blurred prints)
+        import app as main_app
+        face_crop = main_app.crop_face(img, bbox)
+        if face_crop is not None:
+            texture_res = check_texture(face_crop)
+            if not texture_res["texture_pass"]:
+                print(f"[Auth Liveness] Texture check failed - Lap: {texture_res['laplacian_var']}")
+                return jsonify({
+                    "success": False,
+                    "face_detected": True,
+                    "bbox": bbox,
+                    "reason": "spoof",
+                    "error": "⚠️ Anti-Spoofing Alert: Screen pixel noise or fake photo texture detected.",
+                    "confidence": 0.0
+                }), 200
 
         best_match_name = None
         best_user_id = None

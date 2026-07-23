@@ -254,6 +254,44 @@
             box-shadow: none !important;
         }
 
+        /* ── Liveness Security Status Bar ── */
+        .liveness-status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 14px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 20px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #10b981;
+            transition: all 0.3s ease;
+        }
+        .liveness-status-bar.spoof {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+        .liveness-indicator-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: livenessPulse 2s infinite;
+        }
+        .liveness-status-bar.spoof .liveness-indicator-dot {
+            background: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+        }
+        @keyframes livenessPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+        }
+
         .btn-outline {
             width: 100%;
             padding: 14px 24px;
@@ -554,6 +592,10 @@
 
             <!-- Face Login -->
             <div id="facePanel" class="panel">
+                <div class="liveness-status-bar" id="livenessStatusBar">
+                    <span class="liveness-indicator-dot"></span>
+                    <span class="liveness-status-text" id="livenessStatusText">🛡️ Anti-Spoofing Active — 3D Liveness Protection</span>
+                </div>
                 <div class="webcam-container" id="faceLoginWebcam">
                     <video id="faceVideo" autoplay playsinline muted></video>
                     <canvas id="faceCanvas"></canvas>
@@ -912,7 +954,14 @@
 
             document.getElementById('scanLine').classList.remove('active');
 
+            const bar = document.getElementById('livenessStatusBar');
+            const barText = document.getElementById('livenessStatusText');
+
             if (data.success) {
+                if (bar && barText) {
+                    bar.className = 'liveness-status-bar';
+                    barText.textContent = '🛡️ 3D Liveness Verified — Access Granted';
+                }
                 drawFaceOverlay(data.bbox, true, data.employee_name, data.confidence, 'recognized');
                 stopAutoScanLoop();
                 showStatus('loginStatus', `✨ ${data.message} (${data.confidence}% match)`, 'success');
@@ -920,6 +969,16 @@
                 btn.innerHTML = '✔ Recognized! Logging in...';
                 setTimeout(() => window.location.href = '/', 900);
             } else {
+                if (data.reason === 'spoof') {
+                    if (bar && barText) {
+                        bar.className = 'liveness-status-bar spoof';
+                        barText.textContent = '⚠️ Anti-Spoofing Alert — Photo / Screen Rejected';
+                    }
+                } else if (bar && barText) {
+                    bar.className = 'liveness-status-bar';
+                    barText.textContent = '🛡️ Anti-Spoofing Active — 3D Real Face Verified';
+                }
+
                 if (data.bbox) {
                     drawFaceOverlay(data.bbox, false, null, 0, data.reason || 'unregistered');
                 } else {
