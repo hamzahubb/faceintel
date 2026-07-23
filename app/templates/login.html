@@ -832,11 +832,11 @@
             shadowCol = 'rgba(34, 197, 94, 0.6)';
             fillCol = 'rgba(22, 101, 52, 0.9)';
             labelText = `✔ ${name} (${confidence}%)`;
-        } else if (statusType === 'blink') {
-            strokeCol = '#f59e0b';
-            shadowCol = 'rgba(245, 158, 11, 0.6)';
-            fillCol = 'rgba(120, 53, 15, 0.9)';
-            labelText = `👁️ Blink Eyes to Verify Liveness`;
+        } else if (statusType === 'unregistered') {
+            strokeCol = '#a855f7';
+            shadowCol = 'rgba(168, 85, 247, 0.6)';
+            fillCol = 'rgba(88, 28, 135, 0.9)';
+            labelText = `👤 Unknown Person (Not Registered)`;
         } else if (statusType === 'spoof') {
             strokeCol = '#ef4444';
             shadowCol = 'rgba(239, 68, 68, 0.6)';
@@ -919,17 +919,9 @@
                 btn.disabled = true;
                 btn.innerHTML = '✔ Recognized! Logging in...';
                 setTimeout(() => window.location.href = '/', 900);
-            } else if (data.blink_required) {
-                drawFaceOverlay(data.bbox, false, null, 0, 'blink');
-                showStatus('loginStatus', '👁️ Real face required — Please blink your eyes to verify liveness.', 'info');
-                if (isManualClick) {
-                    btn.disabled = false;
-                    btn.textContent = '👁️ Blink Eyes & Scan';
-                }
-                isLoginProcessing = false;
             } else {
                 if (data.bbox) {
-                    drawFaceOverlay(data.bbox, false, null, 0, 'spoof');
+                    drawFaceOverlay(data.bbox, false, null, 0, data.reason || 'unregistered');
                 } else {
                     clearFaceCanvas();
                 }

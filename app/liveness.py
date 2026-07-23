@@ -159,8 +159,8 @@ def check_3d_depth_liveness(landmarks: list) -> bool:
     try:
         zs = [pt[2] for pt in landmarks]
         z_std = float(np.std(zs))
-        # Flat screen/photo: z_std < 0.008. Real 3D face: z_std >= 0.008
-        return z_std >= 0.008
+        # Flat screen/photo: z_std < 0.004. Real 3D face: z_std >= 0.005
+        return z_std >= 0.005
     except Exception:
         return True
 

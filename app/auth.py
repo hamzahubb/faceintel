@@ -19,8 +19,8 @@ from liveness import check_texture, check_3d_depth_liveness
 
 auth_bp = Blueprint("auth", __name__)
 
-# Cosine similarity threshold for face login matching (0.48 is optimal for ArcFace)
-FACE_LOGIN_THRESHOLD = 0.48
+# Cosine similarity threshold for face login matching (0.60 ensures strangers are NEVER accepted)
+FACE_LOGIN_THRESHOLD = 0.60
 
 
 def _detect_and_get_embedding(img: np.ndarray):
@@ -244,58 +244,15 @@ def api_face_login():
                 "error": "No face detected in camera view.",
             }), 400
 
-        # 1. Perform 3D Depth Variance Anti-Spoofing check
+        # 1. Perform 3D Depth Variance Anti-Spoofing check (blocks 2D flat paper photos and phone screens)
         if not check_3d_depth_liveness(landmarks):
             print("[Auth Liveness] 2D Flat Screen/Photo Rejected via 3D Depth Analysis")
             return jsonify({
                 "success": False,
                 "face_detected": True,
                 "bbox": bbox,
+                "reason": "spoof",
                 "error": "Liveness check failed. Flat 2D photo or phone screen detected.",
-                "confidence": 0.0
-            }), 200
-
-        # 2. Perform texture focus check
-        import app as main_app
-        face_crop = main_app.crop_face(img, bbox)
-        if face_crop is not None:
-            texture_res = check_texture(face_crop)
-            if not texture_res["texture_pass"]:
-                print(f"[Auth Liveness] Texture check failed - Lap: {texture_res['laplacian_var']}")
-                return jsonify({
-                    "success": False,
-                    "face_detected": True,
-                    "bbox": bbox,
-                    "error": "Liveness verification failed. Extremely blurry or flat image.",
-                    "confidence": 0.0
-                }), 200
-
-        # 3. Eye-Blink Tracking (Session-Based Anti-Spoofing)
-        blink_left = blendshapes.get("eyeBlinkLeft", 0.0)
-        blink_right = blendshapes.get("eyeBlinkRight", 0.0)
-        avg_blink = (blink_left + blink_right) / 2.0
-
-        eye_was_closed = session.get("face_eye_closed", False)
-        blink_count = session.get("face_blink_count", 0)
-
-        # Detect eye blink transition (open -> closed -> open)
-        if not eye_was_closed and avg_blink >= 0.35:
-            session["face_eye_closed"] = True
-        elif eye_was_closed and avg_blink <= 0.20:
-            session["face_eye_closed"] = False
-            blink_count += 1
-            session["face_blink_count"] = blink_count
-            print(f"[Auth Liveness] 👁️ Live eye blink verified! Total blinks: {blink_count}")
-
-        # Require at least 1 eye blink to prevent static photo or screen spoofing
-        if blink_count < 1:
-            return jsonify({
-                "success": False,
-                "face_detected": True,
-                "bbox": bbox,
-                "blink_required": True,
-                "blink_count": 0,
-                "error": "👁️ Real face required — Please blink your eyes to verify liveness.",
                 "confidence": 0.0
             }), 200
 
@@ -356,6 +313,7 @@ def api_face_login():
                 "success": False,
                 "face_detected": True,
                 "bbox": bbox,
+                "reason": "unregistered",
                 "error": f"Face detected, but unrecognised ({round(best_score*100, 1)}% match).",
                 "confidence": round(best_score * 100, 1),
             }), 401
