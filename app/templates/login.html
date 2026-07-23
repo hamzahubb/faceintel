@@ -275,6 +275,11 @@
             border-color: rgba(239, 68, 68, 0.4);
             color: #ef4444;
         }
+        .liveness-status-bar.blink {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: #f59e0b;
+        }
         .liveness-indicator-dot {
             width: 8px;
             height: 8px;
@@ -286,6 +291,10 @@
         .liveness-status-bar.spoof .liveness-indicator-dot {
             background: #ef4444;
             box-shadow: 0 0 8px #ef4444;
+        }
+        .liveness-status-bar.blink .liveness-indicator-dot {
+            background: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
         }
         @keyframes livenessPulse {
             0%, 100% { transform: scale(1); opacity: 1; }
@@ -874,6 +883,11 @@
             shadowCol = 'rgba(34, 197, 94, 0.6)';
             fillCol = 'rgba(22, 101, 52, 0.9)';
             labelText = `✔ ${name} (${confidence}%)`;
+        } else if (statusType === 'blink') {
+            strokeCol = '#f59e0b';
+            shadowCol = 'rgba(245, 158, 11, 0.6)';
+            fillCol = 'rgba(120, 53, 15, 0.9)';
+            labelText = `👁️ Blink Eyes to Verify Liveness`;
         } else if (statusType === 'unregistered') {
             strokeCol = '#a855f7';
             shadowCol = 'rgba(168, 85, 247, 0.6)';
@@ -968,6 +982,20 @@
                 btn.disabled = true;
                 btn.innerHTML = '✔ Recognized! Logging in...';
                 setTimeout(() => window.location.href = '/', 900);
+            } else if (data.reason === 'blink_required') {
+                if (bar && barText) {
+                    bar.className = 'liveness-status-bar blink';
+                    barText.textContent = '👁️ Live Face Required — Please Blink Your Eyes';
+                }
+                if (data.bbox) {
+                    drawFaceOverlay(data.bbox, false, null, 0, 'blink');
+                }
+                showStatus('loginStatus', '👁️ Real live face required — Please blink your eyes to verify liveness.', 'info');
+                if (isManualClick) {
+                    btn.disabled = false;
+                    btn.textContent = '👁️ Blink Eyes to Login';
+                }
+                isLoginProcessing = false;
             } else {
                 if (data.reason === 'spoof') {
                     if (bar && barText) {
