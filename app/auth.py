@@ -15,7 +15,7 @@ from database import (
     get_all_users_with_embedding, get_all_employees, save_employee
 )
 from recognizer import get_embedding, cosine_similarity
-from liveness import check_texture, check_3d_depth_liveness
+from liveness import check_texture, check_3d_depth_liveness, check_screen_spoof
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -244,19 +244,19 @@ def api_face_login():
                 "error": "No face detected in camera view.",
             }), 400
 
-        # 1. Perform Texture & Sharpness Check (blocks digital screen moiré & blurred prints)
+        # 1. Advanced Anti-Spoofing Check (blocks smartphone screen videos, photos, glare, and digital Moiré grids)
         import app as main_app
         face_crop = main_app.crop_face(img, bbox)
         if face_crop is not None:
-            texture_res = check_texture(face_crop)
-            if not texture_res["texture_pass"]:
-                print(f"[Auth Liveness] Texture check failed - Lap: {texture_res['laplacian_var']}")
+            screen_spoof_res = check_screen_spoof(face_crop)
+            if screen_spoof_res["is_spoof"]:
+                print(f"[Auth Anti-Spoof] Phone screen/video attack rejected: {screen_spoof_res['reason']}")
                 return jsonify({
                     "success": False,
                     "face_detected": True,
                     "bbox": bbox,
                     "reason": "spoof",
-                    "error": "⚠️ Anti-Spoofing Alert: Screen pixel noise or fake photo texture detected.",
+                    "error": f"⚠️ Anti-Spoofing Alert: {screen_spoof_res['reason']}.",
                     "confidence": 0.0
                 }), 200
 

@@ -174,6 +174,89 @@ def _compute_glare_ratio(face_bgr: np.ndarray) -> float:
     return float(glare_pixels / gray.size)
 
 
+def _compute_fft_moire_score(face_bgr: np.ndarray) -> float:
+    """Detect high-frequency digital subpixel Moiré patterns from phone/tablet screens using 2D FFT."""
+    if face_bgr is None or face_bgr.size == 0:
+        return 0.0
+    try:
+        gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
+        h, w = gray.shape
+        if h < 30 or w < 30:
+            return 0.0
+        
+        f = np.fft.fft2(gray.astype(np.float32))
+        fshift = np.fft.fftshift(f)
+        magnitude = np.abs(fshift)
+
+        cy, cx = h // 2, w // 2
+        r = min(h, w) // 6
+        y_indices, x_indices = np.ogrid[:h, :w]
+        center_mask = (x_indices - cx)**2 + (y_indices - cy)**2 <= r**2
+
+        high_freq_mag = np.mean(magnitude[~center_mask])
+        low_freq_mag = np.mean(magnitude[center_mask]) + 1e-8
+        return float(high_freq_mag / low_freq_mag)
+    except Exception:
+        return 0.0
+
+
+def _compute_skin_chroma_score(face_bgr: np.ndarray) -> tuple[bool, float]:
+    """Verify natural human skin YCrCb chrominance distribution vs digital screen RGB emission."""
+    if face_bgr is None or face_bgr.size == 0:
+        return True, 0.0
+    try:
+        ycrcb = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2YCrCb)
+        cr = ycrcb[:, :, 1]
+        cb = ycrcb[:, :, 2]
+
+        # Natural human skin Cr range: 130-175, Cb range: 75-130
+        skin_mask = (cr >= 130) & (cr <= 175) & (cb >= 75) & (cb <= 130)
+        skin_ratio = float(np.count_nonzero(skin_mask) / ycrcb.shape[0] / ycrcb.shape[1])
+        
+        return skin_ratio >= 0.25, float(skin_ratio)
+    except Exception:
+        return True, 1.0
+
+
+def check_screen_spoof(face_crop: np.ndarray) -> dict:
+    """
+    Advanced Anti-Spoofing Engine to block smartphone screen videos & photo attacks.
+    Analyzes FFT subpixel moiré patterns, specular glass glare, and skin chrominance.
+    """
+    if face_crop is None or face_crop.size == 0:
+        return {"is_spoof": False, "score": 0.0, "reason": "VALID"}
+
+    fft_score = _compute_fft_moire_score(face_crop)
+    glare_ratio = _compute_glare_ratio(face_crop)
+    skin_pass, skin_score = _compute_skin_chroma_score(face_crop)
+    lap_var = _compute_laplacian_variance(face_crop)
+
+    is_spoof = False
+    reasons = []
+
+    # Digital screen video / photo checks
+    if fft_score >= 0.038:
+        is_spoof = True
+        reasons.append("Digital screen Moiré subpixel grid detected")
+
+    if glare_ratio >= 0.08:
+        is_spoof = True
+        reasons.append("Phone screen glass reflection glare detected")
+
+    if not skin_pass:
+        is_spoof = True
+        reasons.append("Unnatural screen backlight color spectrum")
+
+    return {
+        "is_spoof": is_spoof,
+        "fft_score": round(fft_score, 4),
+        "glare_ratio": round(glare_ratio, 3),
+        "skin_score": round(skin_score, 2),
+        "laplacian_var": round(lap_var, 2),
+        "reason": " | ".join(reasons) if is_spoof else "REAL_FACE"
+    }
+
+
 def check_texture(face_crop: np.ndarray) -> dict:
     """
     Run texture-based anti-spoofing checks on a face crop.
