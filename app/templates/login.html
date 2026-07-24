@@ -566,6 +566,128 @@
             transition: color 0.2s;
         }
         .toggle-password:hover { color: var(--text-secondary); }
+
+        /* ── Interactive Alert Modals ── */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 8, 20, 0.85);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-card {
+            background: #18152c;
+            border-radius: 24px;
+            padding: 32px 28px;
+            max-width: 440px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+            transform: scale(0.85) translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .modal-overlay.active .modal-card {
+            transform: scale(1) translateY(0);
+        }
+        .modal-card.spoof-card {
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            box-shadow: 0 0 50px rgba(239, 68, 68, 0.25);
+        }
+        .modal-card.unregistered-card {
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            box-shadow: 0 0 50px rgba(168, 85, 247, 0.25);
+        }
+        .modal-icon-badge {
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin: 0 auto 20px auto;
+        }
+        .modal-card.spoof-card .modal-icon-badge {
+            background: rgba(239, 68, 68, 0.15);
+            border: 2px solid rgba(239, 68, 68, 0.4);
+            box-shadow: 0 0 24px rgba(239, 68, 68, 0.3);
+        }
+        .modal-card.unregistered-card .modal-icon-badge {
+            background: rgba(168, 85, 247, 0.15);
+            border: 2px solid rgba(168, 85, 247, 0.4);
+            box-shadow: 0 0 24px rgba(168, 85, 247, 0.3);
+        }
+        .modal-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+        .modal-card.spoof-card .modal-title { color: #fca5a5; }
+        .modal-card.unregistered-card .modal-title { color: #e9d5ff; }
+
+        .modal-desc {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.75);
+            line-height: 1.55;
+            margin-bottom: 24px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        .modal-btn {
+            padding: 12px 22px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: var(--font-main);
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        .modal-btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #ffffff;
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+        }
+        .modal-btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(239, 68, 68, 0.5);
+        }
+        .modal-btn-purple {
+            background: linear-gradient(135deg, #a855f7, #7c3aed);
+            color: #ffffff;
+            box-shadow: 0 4px 16px rgba(168, 85, 247, 0.35);
+        }
+        .modal-btn-purple:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(168, 85, 247, 0.5);
+        }
+        .modal-btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .modal-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
@@ -1013,37 +1135,54 @@
                     btn.textContent = '👁️ Blink Eyes to Login';
                 }
                 isLoginProcessing = false;
-            } else {
-                if (data.reason === 'spoof') {
-                    if (bar && barText) {
-                        bar.className = 'liveness-status-bar spoof';
-                        barText.textContent = '⚠️ Anti-Spoofing Alert — Photo / Screen Rejected';
-                    }
-                } else if (bar && barText) {
+            } else if (data.reason === 'verifying') {
+                if (bar && barText) {
                     bar.className = 'liveness-status-bar';
-                    barText.textContent = '🛡️ Anti-Spoofing Active — 3D Real Face Verified';
+                    barText.textContent = '🔒 Verifying Identity — Hold Still...';
                 }
-
                 if (data.bbox) {
-                    drawFaceOverlay(data.bbox, false, null, 0, data.reason || 'unregistered');
-                } else {
-                    clearFaceCanvas();
+                    drawFaceOverlay(data.bbox, false, null, data.confidence, 'blink');
                 }
-
-                const statusDiv = document.getElementById('loginStatus');
-                statusDiv.innerHTML = `
-                    <span>${data.error || 'Face not recognized.'} New to the system? </span>
-                    <a onclick="registerWithScannedFace('${imageData.replace(/'/g, "\\'")}')" style="color: #a5b4fc; font-weight: 700; text-decoration: underline; cursor: pointer; margin-left: 4px;">
-                        ➕ Register Account with this Face
-                    </a>
-                `;
-                statusDiv.className = 'status-msg error';
-
+                showStatus('loginStatus', data.error || '🔒 Verifying identity...', 'info');
+                if (isManualClick) {
+                    btn.disabled = false;
+                    btn.textContent = '🔒 Verifying...';
+                }
+                isLoginProcessing = false;
+            } else if (data.reason === 'spoof') {
+                if (bar && barText) {
+                    bar.className = 'liveness-status-bar spoof';
+                    barText.textContent = '⚠️ Anti-Spoofing Alert — Photo / Screen Rejected';
+                }
+                if (data.bbox) {
+                    drawFaceOverlay(data.bbox, false, null, 0, 'spoof');
+                }
+                showStatus('loginStatus', data.error || '⚠️ Spoof attempt detected!', 'error');
                 if (isManualClick) {
                     btn.disabled = false;
                     btn.textContent = '🔍 Scan & Login';
                 }
                 isLoginProcessing = false;
+                // Pop up Spoof Modal immediately and stop detection scan!
+                showSpoofModal(data.error);
+            } else {
+                if (bar && barText) {
+                    bar.className = 'liveness-status-bar';
+                    barText.textContent = '🛡️ Anti-Spoofing Active — 3D Real Face Verified';
+                }
+                if (data.bbox) {
+                    drawFaceOverlay(data.bbox, false, null, 0, 'unregistered');
+                } else {
+                    clearFaceCanvas();
+                }
+                showStatus('loginStatus', data.error || 'Face not recognized.', 'error');
+                if (isManualClick) {
+                    btn.disabled = false;
+                    btn.textContent = '🔍 Scan & Login';
+                }
+                isLoginProcessing = false;
+                // Pop up Unregistered Person Modal immediately and stop detection scan!
+                showUnregisteredModal(data.error, imageData);
             }
         } catch (err) {
             document.getElementById('scanLine').classList.remove('active');
@@ -1180,10 +1319,83 @@
         }
     }
 
+    // ── Interactive Pop-up Modal Controllers ──
+    let pendingModalFaceData = null;
+
+    function showSpoofModal(errorMessage) {
+        stopAutoScanLoop(); // Stop detection immediately!
+        const desc = document.getElementById('spoofModalDesc');
+        if (desc) desc.textContent = errorMessage || 'Photo, screenshot, or phone video playback detected. Authentication has been blocked for security.';
+        document.getElementById('spoofModal').classList.add('active');
+    }
+
+    function showUnregisteredModal(errorMessage, imageData) {
+        stopAutoScanLoop(); // Stop detection immediately!
+        pendingModalFaceData = imageData;
+        const desc = document.getElementById('unregisteredModalDesc');
+        if (desc) desc.textContent = errorMessage || 'This face is not recognized in our employee database. If you are new, click below to register an account.';
+        document.getElementById('unregisteredModal').classList.add('active');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+        const btn = document.getElementById('faceScanBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '🔍 Scan & Login';
+        }
+        isLoginProcessing = false;
+    }
+
+    function retryFaceScanAfterModal() {
+        closeModal('spoofModal');
+        handleFaceLogin();
+    }
+
+    function registerFromModal() {
+        closeModal('unregisteredModal');
+        if (pendingModalFaceData) {
+            registerWithScannedFace(pendingModalFaceData);
+        } else {
+            showSignup();
+        }
+    }
+
     // ── Init: auto-show signup if flagged ──
     {% if signup %}
     showSignup();
     {% endif %}
 </script>
+
+<!-- ═══════════ SPOOF ALERT POP-UP MODAL ═══════════ -->
+<div id="spoofModal" class="modal-overlay">
+    <div class="modal-card spoof-card">
+        <div class="modal-icon-badge">⚠️</div>
+        <h3 class="modal-title">Security Alert: Spoof Attempt Detected!</h3>
+        <p class="modal-desc" id="spoofModalDesc">
+            Photo, screenshot, or phone video playback detected. Authentication has been blocked for security.
+        </p>
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-danger" onclick="retryFaceScanAfterModal()">🔄 Try Again</button>
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal('spoofModal')">Dismiss</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ UNREGISTERED PERSON POP-UP MODAL ═══════════ -->
+<div id="unregisteredModal" class="modal-overlay">
+    <div class="modal-card unregistered-card">
+        <div class="modal-icon-badge">👤</div>
+        <h3 class="modal-title">Unregistered Person Detected</h3>
+        <p class="modal-desc" id="unregisteredModalDesc">
+            This face is not recognized in our employee database. If you are new, click below to register an account.
+        </p>
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-purple" onclick="registerFromModal()">➕ Register Account</button>
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal('unregisteredModal')">Dismiss</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

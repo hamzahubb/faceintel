@@ -221,7 +221,7 @@ def _compute_skin_chroma_score(face_bgr: np.ndarray) -> tuple[bool, float]:
 def check_screen_spoof(face_crop: np.ndarray) -> dict:
     """
     Calibrated Anti-Spoofing Engine to block smartphone screen videos & photo attacks.
-    Real faces pass 100% reliably. Phone screen displays fail on glare and Moiré patterns.
+    Real faces pass reliably. Phone screen displays fail on glare, FFT subpixel patterns, and texture anomalies.
     """
     if face_crop is None or face_crop.size == 0:
         return {"is_spoof": False, "score": 0.0, "reason": "VALID"}
@@ -233,15 +233,20 @@ def check_screen_spoof(face_crop: np.ndarray) -> dict:
     is_spoof = False
     reasons = []
 
-    # Detect phone screen glass reflections (glare >= 15% of face crop)
-    if glare_ratio >= 0.15:
+    # Detect phone screen glass reflections (glare >= 3.5% of face crop)
+    if glare_ratio >= 0.035:
         is_spoof = True
         reasons.append("Phone screen glass reflection glare detected")
 
-    # Detect digital screen Moiré subpixel grid (FFT score >= 0.080)
-    if fft_score >= 0.080:
+    # Detect digital screen Moiré subpixel grid (FFT score >= 0.035)
+    if fft_score >= 0.035:
         is_spoof = True
         reasons.append("Digital screen Moiré subpixel grid detected")
+
+    # Detect abnormal high-frequency noise spikes from screen re-capture (lap_var > 450 with elevated FFT)
+    if lap_var > 450.0 and fft_score >= 0.030:
+        is_spoof = True
+        reasons.append("Digital screen subpixel noise grid detected")
 
     return {
         "is_spoof": is_spoof,

@@ -300,42 +300,20 @@ def api_face_login():
                 }), 200
 
         # ──────────────────────────────────────────────────────────
-        # LAYER 4: Multi-Frame Temporal Consistency (anti video replay)
-        # Uses server-side in-memory cache (NOT session cookie, which
-        # has a 4KB limit and would corrupt blink state).
+        # LAYER 4: Server-Side Anti-Spoof Cache + Temporal Analysis
+        # Tracks per-client frame data WITHOUT touching session cookie.
         # ──────────────────────────────────────────────────────────
         import sys
-        spoof_score = 0
-        if face_crop is not None and face_crop.size > 0:
-            gray_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
-            gray_small = cv2.resize(gray_crop, (8, 8)).astype(np.float32).flatten()
-            # Use a compact perceptual hash (64 values instead of 1024)
-            frame_hash = (gray_small > gray_small.mean()).astype(np.uint8)
+        client_key = request.remote_addr or "unknown"
+        if not hasattr(api_face_login, '_spoof_cache'):
+            api_face_login._spoof_cache = {}
+        scache = api_face_login._spoof_cache
 
-            client_key = request.remote_addr or "unknown"
-            if not hasattr(api_face_login, '_frame_cache'):
-                api_face_login._frame_cache = {}
-
-            cache = api_face_login._frame_cache
-            prev_data = cache.get(client_key)
-
-            if prev_data is not None:
-                prev_hash = prev_data["hash"]
-                prev_time = prev_data["time"]
-                # Hamming distance: count differing bits
-                hamming_dist = int(np.sum(frame_hash != prev_hash))
-                time_gap = now_ts - prev_time
-                print(f"[Auth L4] Temporal: hamming_dist={hamming_dist} time_gap={time_gap:.3f}s", flush=True)
-
-                # Perfectly identical frame (hamming_dist == 0) = static photo
-                if hamming_dist <= 1 and time_gap > 0.05:
-                    spoof_score += 1
-
-            cache[client_key] = {"hash": frame_hash, "time": now_ts}
-            # Clean old entries (older than 30 seconds)
-            stale_keys = [k for k, v in cache.items() if now_ts - v["time"] > 30]
-            for k in stale_keys:
-                del cache[k]
+        # Initialize or retrieve client cache entry
+        if client_key not in scache or (now_ts - scache[client_key].get("last_ts", 0)) > 30:
+            scache[client_key] = {"skin_ratios": [], "scores": [], "pass_streak": 0, "last_ts": now_ts}
+        cdata = scache[client_key]
+        cdata["last_ts"] = now_ts
 
         # ──────────────────────────────────────────────────────────
         # LAYER 5: Mandatory Live Eye-Blink (Rolling 4-Second Window)
@@ -354,12 +332,13 @@ def api_face_login():
             session["face_eye_closed"] = False
             session["last_blink_time"] = now_ts
             last_blink_time = now_ts
-            print(f"[Auth L5] 👁️ Live blink transition verified at t={now_ts:.2f}", flush=True)
+            print(f"[Auth L5] Live blink transition verified at t={now_ts:.2f}", flush=True)
 
         has_fresh_blink = (now_ts - last_blink_time) <= 4.0
         print(f"[Auth L5] Blink: max_blink={max_blink:.3f} eye_closed={eye_was_closed} last_blink={last_blink_time:.1f} has_fresh={has_fresh_blink}", flush=True)
 
         if not has_fresh_blink:
+            cdata["pass_streak"] = 0  # Reset streak on blink wait
             return jsonify({
                 "success": False, "face_detected": True, "bbox": bbox,
                 "reason": "blink_required", "blink_required": True,
@@ -368,26 +347,43 @@ def api_face_login():
             }), 200
 
         # ──────────────────────────────────────────────────────────
-        # LAYER 6: Skin Chrominance Verification
-        # Real skin has natural YCrCb values; screens emit different
-        # chromatic signatures.
+        # LAYER 6: Skin Chrominance + HSV Color Analysis
+        # Phone screens emit unnatural RGB light; real skin has
+        # consistent YCrCb chrominance. Track over multiple frames.
         # ──────────────────────────────────────────────────────────
+        skin_ratio = 1.0
+        frame_is_suspect = False
         if face_crop is not None:
             from liveness import _compute_skin_chroma_score
             skin_pass, skin_ratio = _compute_skin_chroma_score(face_crop)
             print(f"[Auth L6] Skin Chroma: ratio={skin_ratio:.4f} pass={skin_pass}", flush=True)
-            if not skin_pass:
-                spoof_score += 1
 
-        # If accumulated spoof_score is high enough, reject
-        if spoof_score >= 2:
-            print(f"[Auth] Multi-signal spoof rejection: spoof_score={spoof_score}", flush=True)
-            return jsonify({
-                "success": False, "face_detected": True, "bbox": bbox,
-                "reason": "spoof",
-                "error": "⚠️ Spoof detected — Multiple anti-spoofing signals triggered.",
-                "confidence": 0.0
-            }), 200
+            # Also check HSV: screens produce higher value (V) and lower saturation (S) variance
+            hsv = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
+            sat_mean = float(np.mean(hsv[:, :, 1]))
+            val_mean = float(np.mean(hsv[:, :, 2]))
+            # Screen light tends to have very high brightness + low saturation
+            screen_like = (val_mean > 200 and sat_mean < 40)
+            print(f"[Auth L6] HSV: sat_mean={sat_mean:.1f} val_mean={val_mean:.1f} screen_like={screen_like}", flush=True)
+
+            if not skin_pass or screen_like:
+                frame_is_suspect = True
+
+            # Track skin ratios for consistency analysis
+            cdata["skin_ratios"].append(skin_ratio)
+            if len(cdata["skin_ratios"]) > 8:
+                cdata["skin_ratios"] = cdata["skin_ratios"][-8:]
+
+            # Detect oscillating skin ratio (phone video signature)
+            # Real faces have stable skin ratio (std < 0.08), phone videos oscillate wildly
+            if len(cdata["skin_ratios"]) >= 4:
+                ratio_std = float(np.std(cdata["skin_ratios"][-4:]))
+                ratio_min = float(min(cdata["skin_ratios"][-4:]))
+                print(f"[Auth L6] Skin stability: std={ratio_std:.4f} min={ratio_min:.4f} (last 4 frames)", flush=True)
+                # If skin ratio oscillated heavily OR any recent frame had very low skin
+                if ratio_std > 0.15 or ratio_min < 0.15:
+                    print(f"[Auth L6] SUSPECT — Unstable skin chrominance (phone video pattern)", flush=True)
+                    frame_is_suspect = True
 
         # ──────────────────────────────────────────────────────────
         # FACE MATCHING — Compare against all registered identities
@@ -431,29 +427,87 @@ def api_face_login():
 
         print(f"[Auth Match] Best: name={best_match_name} score={best_score:.4f} threshold={FACE_LOGIN_THRESHOLD}", flush=True)
 
+        # ──────────────────────────────────────────────────────────
+        # LAYER 7: Multi-Frame Consistency Voting
+        # Real faces produce stable scores; phone videos oscillate.
+        # Must pass 3 consecutive "clean" frames to login.
+        # ──────────────────────────────────────────────────────────
         if best_match_name and best_score >= FACE_LOGIN_THRESHOLD:
-            # Clear anti-spoofing session state on successful login
-            session.pop("face_eye_closed", None)
-            session.pop("face_blink_count", None)
+            # Track match scores for stability analysis
+            cdata["scores"].append(best_score)
+            if len(cdata["scores"]) > 8:
+                cdata["scores"] = cdata["scores"][-8:]
 
-            session["user_id"] = best_user_id
-            session["username"] = best_username
-            session["full_name"] = best_match_name
-            return jsonify({
-                "success": True,
-                "face_detected": True,
-                "bbox": bbox,
-                "employee_name": best_match_name,
-                "message": f"Welcome back, {best_match_name}!",
-                "confidence": round(best_score * 100, 1),
-            })
+            # Check score stability (phone videos oscillate: 0.25 -> 0.60 -> 0.67)
+            score_unstable = False
+            if len(cdata["scores"]) >= 3:
+                recent_scores = cdata["scores"][-3:]
+                score_std = float(np.std(recent_scores))
+                score_min = float(min(recent_scores))
+                print(f"[Auth L7] Score stability: std={score_std:.4f} min={score_min:.4f} streak={cdata['pass_streak']}", flush=True)
+                # Real face: stable high scores (std < 0.05). Phone video: wild swings
+                if score_std > 0.08 or score_min < FACE_LOGIN_THRESHOLD:
+                    score_unstable = True
+
+            # Update pass streak
+            if frame_is_suspect or score_unstable:
+                cdata["pass_streak"] = 0
+                reason_text = []
+                if frame_is_suspect:
+                    reason_text.append("skin chrominance anomaly")
+                if score_unstable:
+                    reason_text.append("unstable match score")
+                print(f"[Auth L7] STREAK RESET — {', '.join(reason_text)}", flush=True)
+                return jsonify({
+                    "success": False, "face_detected": True, "bbox": bbox,
+                    "reason": "spoof",
+                    "error": f"⚠️ Spoof detected — {', '.join(reason_text)}.",
+                    "confidence": round(best_score * 100, 1),
+                }), 200
+            else:
+                cdata["pass_streak"] += 1
+                print(f"[Auth L7] Pass streak: {cdata['pass_streak']}/3", flush=True)
+
+            # Require 3 consecutive clean frames before granting login
+            if cdata["pass_streak"] >= 3:
+                # SUCCESS — all checks passed consistently!
+                cdata["pass_streak"] = 0
+                cdata["scores"] = []
+                cdata["skin_ratios"] = []
+
+                session.pop("face_eye_closed", None)
+                session.pop("face_blink_count", None)
+
+                session["user_id"] = best_user_id
+                session["username"] = best_username
+                session["full_name"] = best_match_name
+                return jsonify({
+                    "success": True,
+                    "face_detected": True,
+                    "bbox": bbox,
+                    "employee_name": best_match_name,
+                    "message": f"Welcome back, {best_match_name}!",
+                    "confidence": round(best_score * 100, 1),
+                })
+            else:
+                # Still accumulating consistent frames
+                return jsonify({
+                    "success": False, "face_detected": True, "bbox": bbox,
+                    "reason": "verifying",
+                    "error": f"🔒 Verifying identity... ({cdata['pass_streak']}/3 frames consistent)",
+                    "confidence": round(best_score * 100, 1),
+                }), 200
         else:
-            is_spoof = bool(best_match_name)
-            reason = "spoof" if is_spoof else "unregistered"
+            cdata["pass_streak"] = 0
+            cdata["scores"] = []
+            
+            # If any frame signal was suspect or matched a profile below threshold, flag as SPOOF
+            is_spoof_attempt = frame_is_suspect or bool(best_match_name)
+            reason = "spoof" if is_spoof_attempt else "unregistered"
             error_msg = (
-                f"⚠️ SPOOF DETECTED ({round(best_score*100, 1)}% match). Phone screen or video attack rejected."
-                if is_spoof
-                else f"Face detected, but unrecognised ({round(best_score*100, 1)}% match)."
+                f"⚠️ SPOOF DETECTED ({round(best_score*100, 1)}% match). Mobile screen, video, or photo attack rejected."
+                if is_spoof_attempt
+                else f"Face detected, but unregistered ({round(best_score*100, 1)}% match)."
             )
 
             return jsonify({
@@ -463,10 +517,10 @@ def api_face_login():
                 "reason": reason,
                 "error": error_msg,
                 "confidence": round(best_score * 100, 1),
-            }), 401
+            }), 200
 
     except Exception as e:
-        print(f"[Auth] Face login error: {e}")
+        print(f"[Auth] Face login error: {e}", flush=True)
         return jsonify({"error": "Face login processing failed."}), 500
 
 
