@@ -257,11 +257,11 @@ def api_face_login():
             zs = [pt[2] for pt in landmarks]
             z_std = float(np.std(zs))
             z_range = float(max(zs) - min(zs))
-            print(f"[Auth L1] 3D Depth: z_std={z_std:.6f} z_range={z_range:.6f}")
+            print(f"[Auth L1] 3D Depth: z_std={z_std:.6f} z_range={z_range:.6f}", flush=True)
             # Phone screens produce flattened 3D: z_std typically < 0.003
             # Real faces produce z_std typically > 0.008
             if z_std < 0.004:
-                print(f"[Auth L1] BLOCKED — Flat screen/photo detected (z_std={z_std:.6f})")
+                print(f"[Auth L1] BLOCKED — Flat screen/photo detected (z_std={z_std:.6f})", flush=True)
                 return jsonify({
                     "success": False, "face_detected": True, "bbox": bbox,
                     "reason": "spoof",
@@ -274,9 +274,9 @@ def api_face_login():
         # ──────────────────────────────────────────────────────────
         if face_crop is not None:
             screen_spoof_res = check_screen_spoof(face_crop)
-            print(f"[Auth L2] Screen: fft={screen_spoof_res.get('fft_score', 0):.4f} glare={screen_spoof_res.get('glare_ratio', 0):.4f}")
+            print(f"[Auth L2] Screen: fft={screen_spoof_res.get('fft_score', 0):.4f} glare={screen_spoof_res.get('glare_ratio', 0):.4f}", flush=True)
             if screen_spoof_res["is_spoof"]:
-                print(f"[Auth L2] BLOCKED — {screen_spoof_res['reason']}")
+                print(f"[Auth L2] BLOCKED — {screen_spoof_res['reason']}", flush=True)
                 return jsonify({
                     "success": False, "face_detected": True, "bbox": bbox,
                     "reason": "spoof",
@@ -289,9 +289,9 @@ def api_face_login():
         # ──────────────────────────────────────────────────────────
         if face_crop is not None:
             texture_res = check_texture(face_crop)
-            print(f"[Auth L3] Texture: lap={texture_res['laplacian_var']:.2f} lbp={texture_res['lbp_var']:.4f} glare={texture_res['glare_ratio']:.4f} pass={texture_res['texture_pass']}")
+            print(f"[Auth L3] Texture: lap={texture_res['laplacian_var']:.2f} lbp={texture_res['lbp_var']:.4f} glare={texture_res['glare_ratio']:.4f} pass={texture_res['texture_pass']}", flush=True)
             if not texture_res["texture_pass"]:
-                print(f"[Auth L3] BLOCKED — Texture analysis failed (screen/photo texture)")
+                print(f"[Auth L3] BLOCKED — Texture analysis failed (screen/photo texture)", flush=True)
                 return jsonify({
                     "success": False, "face_detected": True, "bbox": bbox,
                     "reason": "spoof",
@@ -301,39 +301,41 @@ def api_face_login():
 
         # ──────────────────────────────────────────────────────────
         # LAYER 4: Multi-Frame Temporal Consistency (anti video replay)
-        # Stores grayscale face hash from each frame. Real faces show
-        # natural micro-variations; videos shown on phones show 
-        # characteristic screen refresh artifacts.
+        # Uses server-side in-memory cache (NOT session cookie, which
+        # has a 4KB limit and would corrupt blink state).
         # ──────────────────────────────────────────────────────────
+        import sys
         spoof_score = 0
         if face_crop is not None and face_crop.size > 0:
             gray_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
-            gray_small = cv2.resize(gray_crop, (32, 32)).astype(np.float32).flatten()
+            gray_small = cv2.resize(gray_crop, (8, 8)).astype(np.float32).flatten()
+            # Use a compact perceptual hash (64 values instead of 1024)
+            frame_hash = (gray_small > gray_small.mean()).astype(np.uint8)
 
-            # Store frame hashes for temporal analysis
-            prev_hashes = session.get("_face_frame_hashes", [])
-            prev_timestamps = session.get("_face_frame_times", [])
+            client_key = request.remote_addr or "unknown"
+            if not hasattr(api_face_login, '_frame_cache'):
+                api_face_login._frame_cache = {}
 
-            if prev_hashes and prev_timestamps:
-                # Compare with most recent stored frame
-                prev_arr = np.array(prev_hashes[-1], dtype=np.float32)
-                frame_diff = float(np.mean(np.abs(gray_small - prev_arr)))
-                time_gap = now_ts - prev_timestamps[-1]
+            cache = api_face_login._frame_cache
+            prev_data = cache.get(client_key)
 
-                print(f"[Auth L4] Temporal: frame_diff={frame_diff:.2f} time_gap={time_gap:.3f}s")
+            if prev_data is not None:
+                prev_hash = prev_data["hash"]
+                prev_time = prev_data["time"]
+                # Hamming distance: count differing bits
+                hamming_dist = int(np.sum(frame_hash != prev_hash))
+                time_gap = now_ts - prev_time
+                print(f"[Auth L4] Temporal: hamming_dist={hamming_dist} time_gap={time_gap:.3f}s", flush=True)
 
-                # If frame is EXACTLY identical (diff < 0.5), it's a static image
-                if frame_diff < 0.5 and time_gap > 0.05:
+                # Perfectly identical frame (hamming_dist == 0) = static photo
+                if hamming_dist <= 1 and time_gap > 0.05:
                     spoof_score += 1
 
-            # Keep last 5 hashes (rolling window)
-            prev_hashes.append(gray_small.tolist())
-            prev_timestamps.append(now_ts)
-            if len(prev_hashes) > 5:
-                prev_hashes = prev_hashes[-5:]
-                prev_timestamps = prev_timestamps[-5:]
-            session["_face_frame_hashes"] = prev_hashes
-            session["_face_frame_times"] = prev_timestamps
+            cache[client_key] = {"hash": frame_hash, "time": now_ts}
+            # Clean old entries (older than 30 seconds)
+            stale_keys = [k for k, v in cache.items() if now_ts - v["time"] > 30]
+            for k in stale_keys:
+                del cache[k]
 
         # ──────────────────────────────────────────────────────────
         # LAYER 5: Mandatory Live Eye-Blink (Rolling 4-Second Window)
@@ -352,9 +354,10 @@ def api_face_login():
             session["face_eye_closed"] = False
             session["last_blink_time"] = now_ts
             last_blink_time = now_ts
-            print(f"[Auth L5] 👁️ Live blink transition verified at t={now_ts:.2f}")
+            print(f"[Auth L5] 👁️ Live blink transition verified at t={now_ts:.2f}", flush=True)
 
         has_fresh_blink = (now_ts - last_blink_time) <= 4.0
+        print(f"[Auth L5] Blink: max_blink={max_blink:.3f} eye_closed={eye_was_closed} last_blink={last_blink_time:.1f} has_fresh={has_fresh_blink}", flush=True)
 
         if not has_fresh_blink:
             return jsonify({
@@ -372,13 +375,13 @@ def api_face_login():
         if face_crop is not None:
             from liveness import _compute_skin_chroma_score
             skin_pass, skin_ratio = _compute_skin_chroma_score(face_crop)
-            print(f"[Auth L6] Skin Chroma: ratio={skin_ratio:.4f} pass={skin_pass}")
+            print(f"[Auth L6] Skin Chroma: ratio={skin_ratio:.4f} pass={skin_pass}", flush=True)
             if not skin_pass:
                 spoof_score += 1
 
         # If accumulated spoof_score is high enough, reject
         if spoof_score >= 2:
-            print(f"[Auth] Multi-signal spoof rejection: spoof_score={spoof_score}")
+            print(f"[Auth] Multi-signal spoof rejection: spoof_score={spoof_score}", flush=True)
             return jsonify({
                 "success": False, "face_detected": True, "bbox": bbox,
                 "reason": "spoof",
@@ -426,14 +429,12 @@ def api_face_login():
                 except Exception as e:
                     print(f"[Auth] Error comparing user {u.get('username')}: {e}")
 
-        print(f"[Auth Match] Best: name={best_match_name} score={best_score:.4f} threshold={FACE_LOGIN_THRESHOLD}")
+        print(f"[Auth Match] Best: name={best_match_name} score={best_score:.4f} threshold={FACE_LOGIN_THRESHOLD}", flush=True)
 
         if best_match_name and best_score >= FACE_LOGIN_THRESHOLD:
             # Clear anti-spoofing session state on successful login
             session.pop("face_eye_closed", None)
             session.pop("face_blink_count", None)
-            session.pop("_face_frame_hashes", None)
-            session.pop("_face_frame_times", None)
 
             session["user_id"] = best_user_id
             session["username"] = best_username
@@ -475,8 +476,6 @@ def api_reset_face_session():
     session["face_eye_closed"] = False
     session["face_blink_count"] = 0
     session["last_blink_time"] = 0.0
-    session.pop("_face_frame_hashes", None)
-    session.pop("_face_frame_times", None)
     return jsonify({"success": True})
 
 
