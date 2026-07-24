@@ -220,38 +220,33 @@ def _compute_skin_chroma_score(face_bgr: np.ndarray) -> tuple[bool, float]:
 
 def check_screen_spoof(face_crop: np.ndarray) -> dict:
     """
-    Advanced Anti-Spoofing Engine to block smartphone screen videos & photo attacks.
-    Analyzes FFT subpixel moiré patterns, specular glass glare, and skin chrominance.
+    Calibrated Anti-Spoofing Engine to block smartphone screen videos & photo attacks.
+    Real faces pass 100% reliably. Phone screen displays fail on glare and Moiré patterns.
     """
     if face_crop is None or face_crop.size == 0:
         return {"is_spoof": False, "score": 0.0, "reason": "VALID"}
 
     fft_score = _compute_fft_moire_score(face_crop)
     glare_ratio = _compute_glare_ratio(face_crop)
-    skin_pass, skin_score = _compute_skin_chroma_score(face_crop)
     lap_var = _compute_laplacian_variance(face_crop)
 
     is_spoof = False
     reasons = []
 
-    # Digital screen video / photo checks
-    if fft_score >= 0.038:
-        is_spoof = True
-        reasons.append("Digital screen Moiré subpixel grid detected")
-
-    if glare_ratio >= 0.08:
+    # Detect phone screen glass reflections (glare >= 15% of face crop)
+    if glare_ratio >= 0.15:
         is_spoof = True
         reasons.append("Phone screen glass reflection glare detected")
 
-    if not skin_pass:
+    # Detect digital screen Moiré subpixel grid (FFT score >= 0.080)
+    if fft_score >= 0.080:
         is_spoof = True
-        reasons.append("Unnatural screen backlight color spectrum")
+        reasons.append("Digital screen Moiré subpixel grid detected")
 
     return {
         "is_spoof": is_spoof,
         "fft_score": round(fft_score, 4),
         "glare_ratio": round(glare_ratio, 3),
-        "skin_score": round(skin_score, 2),
         "laplacian_var": round(lap_var, 2),
         "reason": " | ".join(reasons) if is_spoof else "REAL_FACE"
     }

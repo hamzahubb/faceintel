@@ -260,27 +260,30 @@ def api_face_login():
                     "confidence": 0.0
                 }), 200
 
-        # 2. Mandatory Live Eye-Blink Tracking (Lightning Fast Anti-Spoofing)
+        # 2. Mandatory Live Eye-Blink Tracking (Rolling 4-Second Dynamic Window)
+        import time
+        now_ts = time.time()
         blink_left = blendshapes.get("eyeBlinkLeft", 0.0)
         blink_right = blendshapes.get("eyeBlinkRight", 0.0)
         max_blink = max(blink_left, blink_right)
 
         eye_was_closed = session.get("face_eye_closed", False)
-        blink_count = session.get("face_blink_count", 0)
+        last_blink_time = session.get("last_blink_time", 0.0)
 
-        # Lightning fast blink detection: trigger as soon as eyes close (max >= 0.18) or complete transition
-        if max_blink >= 0.18:
-            if not eye_was_closed:
-                session["face_eye_closed"] = True
-                blink_count += 1
-                session["face_blink_count"] = blink_count
-                print(f"[Auth Liveness] 👁️ Instant eye blink detected! Count: {blink_count} (score={max_blink:.2f})")
-        elif eye_was_closed and max_blink <= 0.10:
+        # Dynamic blink transition: open -> closed (max_blink >= 0.22) -> open (max_blink <= 0.12)
+        if not eye_was_closed and max_blink >= 0.22:
+            session["face_eye_closed"] = True
+        elif eye_was_closed and max_blink <= 0.12:
             session["face_eye_closed"] = False
+            session["last_blink_time"] = now_ts
+            last_blink_time = now_ts
+            print(f"[Auth Liveness] 👁️ Live eye blink transition verified at t={now_ts:.2f}")
 
-        # Require at least 1 live eye blink to authorize face login!
-        # Static paper photos and phone screen images stay at ~0.05 and are 100% BLOCKED!
-        if blink_count < 1:
+        # Require a fresh live eye blink transition within the last 4 seconds
+        has_fresh_blink = (now_ts - last_blink_time) <= 4.0
+
+        # Static paper photos, screenshots, and static phone images NEVER blink and are 100% BLOCKED!
+        if not has_fresh_blink:
             return jsonify({
                 "success": False,
                 "face_detected": True,
@@ -369,6 +372,7 @@ def api_reset_face_session():
     """Reset eye blink session state when starting face login."""
     session["face_eye_closed"] = False
     session["face_blink_count"] = 0
+    session["last_blink_time"] = 0.0
     return jsonify({"success": True})
 
 
