@@ -978,9 +978,9 @@
         stopAutoScanLoop();
         autoScanTimer = setInterval(() => {
             if (!isLoginProcessing && faceLoginStream) {
-                runFaceScan(false); // fast background scan (300ms)
+                runFaceScan(false); // lightning-fast background scan (180ms)
             }
-        }, 300);
+        }, 180);
     }
 
     function stopAutoScanLoop() {
@@ -1201,8 +1201,8 @@
                 }
                 isLoginProcessing = false;
 
-                // Pop up Spoof Modal on manual click OR after 2 consecutive solid spoof detections
-                if (isManualClick || consecutiveSpoofCount >= 2) {
+                // Pop up Spoof Modal IMMEDIATELY on very first spoof frame!
+                if (isManualClick || consecutiveSpoofCount >= 1) {
                     consecutiveSpoofCount = 0;
                     showSpoofModal(data.error);
                 }
@@ -1227,8 +1227,8 @@
                 }
                 isLoginProcessing = false;
 
-                // Pop up Unregistered Modal on manual click OR after 3 consecutive detections
-                if (isManualClick || consecutiveUnregisteredCount >= 3) {
+                // Pop up Unregistered Modal after 2 consecutive clean frames of unrecognized face!
+                if (isManualClick || consecutiveUnregisteredCount >= 2) {
                     consecutiveUnregisteredCount = 0;
                     showUnregisteredModal(data.error, imageData);
                 }

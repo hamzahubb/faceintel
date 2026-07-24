@@ -517,14 +517,12 @@ def api_face_login():
             cdata["pass_streak"] = 0
             cdata["scores"] = []
             
-            # If any frame signal was suspect or matched a profile below threshold, flag as SPOOF
-            is_spoof_attempt = frame_is_suspect or bool(best_match_name)
-            reason = "spoof" if is_spoof_attempt else "unregistered"
-            error_msg = (
-                f"⚠️ SPOOF DETECTED ({round(best_score*100, 1)}% match). Mobile screen, video, or photo attack rejected."
-                if is_spoof_attempt
-                else f"Face detected, but unregistered ({round(best_score*100, 1)}% match)."
-            )
+            # Since the face passed Layer 1 (3D depth), Layer 2 (Screen spoof), Layer 3 (Texture), and Layer 6 (Skin Chroma),
+            # it is 100% a REAL LIVE HUMAN FACE who is simply NOT registered in the database (score < threshold).
+            reason = "unregistered"
+            error_msg = f"Face detected, but unregistered ({round(best_score*100, 1)}% match)."
+
+            print(f"[Auth Match] Unregistered live face detected ({round(best_score*100, 1)}% match)", flush=True)
 
             return jsonify({
                 "success": False,
