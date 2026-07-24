@@ -931,10 +931,15 @@
     let autoScanTimer = null;
     let isLoginProcessing = false;
 
+    let consecutiveSpoofCount = 0;
+    let consecutiveUnregisteredCount = 0;
+
     async function startFaceLoginCamera() {
         const placeholder = document.getElementById('faceWebcamPlaceholder');
         const video = document.getElementById('faceVideo');
         try {
+            consecutiveSpoofCount = 0;
+            consecutiveUnregisteredCount = 0;
             fetch('/api/auth/reset_face_session', { method: 'POST' }).catch(err => {});
             faceLoginStream = await navigator.mediaDevices.getUserMedia({
                 video: { width: 640, height: 480, facingMode: 'user' }
@@ -942,12 +947,11 @@
             video.srcObject = faceLoginStream;
             placeholder.style.display = 'none';
 
-            // Wait until video is playing then start auto-scan loop
-            video.onloadedmetadata = () => {
-                video.play();
+            await video.play().catch(e => {});
+            // Allow camera white balance & auto-exposure to stabilize
+            setTimeout(() => {
                 startAutoScanLoop();
-            };
-            startAutoScanLoop();
+            }, 600);
             return true;
         } catch (err) {
             showStatus('loginStatus', 'Camera access denied. Please allow camera permissions.', 'error');
@@ -1110,7 +1114,28 @@
             const bar = document.getElementById('livenessStatusBar');
             const barText = document.getElementById('livenessStatusText');
 
+            // 1. Handle no-face frames cleanly (do NOT trigger any modal)
+            if (!data.face_detected) {
+                consecutiveSpoofCount = 0;
+                consecutiveUnregisteredCount = 0;
+                clearFaceCanvas();
+                if (bar && barText) {
+                    bar.className = 'liveness-status-bar';
+                    barText.textContent = '🛡️ Anti-Spoofing Active — Looking for Face...';
+                }
+                if (isManualClick) {
+                    showStatus('loginStatus', 'No face detected. Position your face in front of camera.', 'info');
+                    btn.disabled = false;
+                    btn.textContent = '🔍 Scan & Login';
+                }
+                isLoginProcessing = false;
+                return;
+            }
+
+            // 2. Successful Recognition
             if (data.success) {
+                consecutiveSpoofCount = 0;
+                consecutiveUnregisteredCount = 0;
                 if (bar && barText) {
                     bar.className = 'liveness-status-bar';
                     barText.textContent = '🛡️ 3D Liveness Verified — Access Granted';
@@ -1121,7 +1146,11 @@
                 btn.disabled = true;
                 btn.innerHTML = '✔ Recognized! Logging in...';
                 setTimeout(() => window.location.href = '/', 900);
-            } else if (data.reason === 'blink_required') {
+            }
+            // 3. Eye Blink Required
+            else if (data.reason === 'blink_required') {
+                consecutiveSpoofCount = 0;
+                consecutiveUnregisteredCount = 0;
                 if (bar && barText) {
                     bar.className = 'liveness-status-bar blink';
                     barText.textContent = '👁️ Live Face Required — Please Blink Your Eyes';
@@ -1135,7 +1164,11 @@
                     btn.textContent = '👁️ Blink Eyes to Login';
                 }
                 isLoginProcessing = false;
-            } else if (data.reason === 'verifying') {
+            }
+            // 4. Verifying Consistency
+            else if (data.reason === 'verifying') {
+                consecutiveSpoofCount = 0;
+                consecutiveUnregisteredCount = 0;
                 if (bar && barText) {
                     bar.className = 'liveness-status-bar';
                     barText.textContent = '🔒 Verifying Identity — Hold Still...';
@@ -1149,7 +1182,11 @@
                     btn.textContent = '🔒 Verifying...';
                 }
                 isLoginProcessing = false;
-            } else if (data.reason === 'spoof') {
+            }
+            // 5. Anti-Spoofing Triggered (Mobile screen, video, photo)
+            else if (data.reason === 'spoof') {
+                consecutiveUnregisteredCount = 0;
+                consecutiveSpoofCount++;
                 if (bar && barText) {
                     bar.className = 'liveness-status-bar spoof';
                     barText.textContent = '⚠️ Anti-Spoofing Alert — Photo / Screen Rejected';
@@ -1163,12 +1200,20 @@
                     btn.textContent = '🔍 Scan & Login';
                 }
                 isLoginProcessing = false;
-                // Pop up Spoof Modal immediately and stop detection scan!
-                showSpoofModal(data.error);
-            } else {
+
+                // Pop up Spoof Modal on manual click OR after 2 consecutive solid spoof detections
+                if (isManualClick || consecutiveSpoofCount >= 2) {
+                    consecutiveSpoofCount = 0;
+                    showSpoofModal(data.error);
+                }
+            }
+            // 6. Unregistered Person Detected
+            else if (data.reason === 'unregistered') {
+                consecutiveSpoofCount = 0;
+                consecutiveUnregisteredCount++;
                 if (bar && barText) {
                     bar.className = 'liveness-status-bar';
-                    barText.textContent = '🛡️ Anti-Spoofing Active — 3D Real Face Verified';
+                    barText.textContent = '👤 Unregistered Face Detected';
                 }
                 if (data.bbox) {
                     drawFaceOverlay(data.bbox, false, null, 0, 'unregistered');
@@ -1181,8 +1226,16 @@
                     btn.textContent = '🔍 Scan & Login';
                 }
                 isLoginProcessing = false;
-                // Pop up Unregistered Person Modal immediately and stop detection scan!
-                showUnregisteredModal(data.error, imageData);
+
+                // Pop up Unregistered Modal on manual click OR after 3 consecutive detections
+                if (isManualClick || consecutiveUnregisteredCount >= 3) {
+                    consecutiveUnregisteredCount = 0;
+                    showUnregisteredModal(data.error, imageData);
+                }
+            }
+            else {
+                clearFaceCanvas();
+                isLoginProcessing = false;
             }
         } catch (err) {
             document.getElementById('scanLine').classList.remove('active');

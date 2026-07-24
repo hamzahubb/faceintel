@@ -248,6 +248,22 @@ def api_face_login():
             }), 400
 
         face_crop = main_app.crop_face(img, bbox)
+        if face_crop is None or face_crop.shape[0] < 45 or face_crop.shape[1] < 45:
+            return jsonify({
+                "success": False,
+                "face_detected": False,
+                "error": "Face region too small.",
+            }), 200
+
+        # Ignore dark camera warmup frames during initial camera activation
+        gray_face = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
+        if float(np.mean(gray_face)) < 18.0:
+            return jsonify({
+                "success": False,
+                "face_detected": False,
+                "error": "Camera stream warming up...",
+            }), 200
+
         now_ts = time.time()
 
         # ──────────────────────────────────────────────────────────
