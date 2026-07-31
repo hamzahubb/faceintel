@@ -233,18 +233,18 @@ def check_screen_spoof(face_crop: np.ndarray) -> dict:
     is_spoof = False
     reasons = []
 
-    # Detect phone screen glass reflections (glare >= 6% of face crop)
-    if glare_ratio >= 0.060:
+    # 1. Detect phone screen glass reflections (glare >= 16% of face crop)
+    if glare_ratio >= 0.16:
         is_spoof = True
         reasons.append("Phone screen glass reflection glare detected")
 
-    # Detect dense digital screen Moiré subpixel grid (FFT score >= 0.095)
-    if fft_score >= 0.095:
+    # 2. Detect dense digital screen Moiré subpixel grid (FFT score >= 0.24)
+    if fft_score >= 0.24:
         is_spoof = True
         reasons.append("Digital screen Moiré subpixel grid detected")
 
-    # Detect combined screen artifacts (elevated FFT >= 0.075 AND glass glare >= 0.040)
-    if fft_score >= 0.075 and glare_ratio >= 0.040:
+    # 3. Detect combined screen artifacts (elevated FFT >= 0.18 AND glass glare >= 0.10)
+    if fft_score >= 0.18 and glare_ratio >= 0.10:
         is_spoof = True
         reasons.append("Phone screen reflection and Moiré pattern detected")
 

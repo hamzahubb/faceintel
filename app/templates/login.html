@@ -911,7 +911,7 @@
                 body: JSON.stringify({ username, password }),
             });
             const data = await res.json();
-
+console.log('DEBUG:', data);
             if (data.success) {
                 showStatus('loginStatus', data.message, 'success');
                 setTimeout(() => window.location.href = '/', 800);
@@ -1108,7 +1108,7 @@
                 body: JSON.stringify({ image: imageData }),
             });
             const data = await res.json();
-
+console.log('DEBUG:', data);
             document.getElementById('scanLine').classList.remove('active');
 
             const bar = document.getElementById('livenessStatusBar');
@@ -1201,11 +1201,9 @@
                 }
                 isLoginProcessing = false;
 
-                // Pop up Spoof Modal IMMEDIATELY on very first spoof frame!
-                if (isManualClick || consecutiveSpoofCount >= 1) {
-                    consecutiveSpoofCount = 0;
-                    showSpoofModal(data.error);
-                }
+                // Immediately pop up Spoof Modal without any delay!
+                consecutiveSpoofCount = 0;
+                showSpoofModal(data.error);
             }
             // 6. Unregistered Person Detected
             else if (data.reason === 'unregistered') {
@@ -1227,8 +1225,8 @@
                 }
                 isLoginProcessing = false;
 
-                // Pop up Unregistered Modal after 2 consecutive clean frames of unrecognized face!
-                if (isManualClick || consecutiveUnregisteredCount >= 2) {
+                // Require 3 consecutive clean live frames of unrecognized face before popping up Unregistered Modal!
+                if (isManualClick || consecutiveUnregisteredCount >= 3) {
                     consecutiveUnregisteredCount = 0;
                     showUnregisteredModal(data.error, imageData);
                 }
@@ -1290,6 +1288,7 @@
                 }),
             });
             const data = await res.json();
+            console.log('DEBUG:', data);
 
             if (data.success) {
                 let msg = data.message;
@@ -1377,27 +1376,33 @@
 
     function showSpoofModal(errorMessage) {
         stopAutoScanLoop(); // Stop detection immediately!
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
         const desc = document.getElementById('spoofModalDesc');
         if (desc) desc.textContent = errorMessage || 'Photo, screenshot, or phone video playback detected. Authentication has been blocked for security.';
-        document.getElementById('spoofModal').classList.add('active');
+        const target = document.getElementById('spoofModal');
+        if (target) target.classList.add('active');
     }
 
     function showUnregisteredModal(errorMessage, imageData) {
         stopAutoScanLoop(); // Stop detection immediately!
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
         pendingModalFaceData = imageData;
         const desc = document.getElementById('unregisteredModalDesc');
         if (desc) desc.textContent = errorMessage || 'This face is not recognized in our employee database. If you are new, click below to register an account.';
-        document.getElementById('unregisteredModal').classList.add('active');
+        const target = document.getElementById('unregisteredModal');
+        if (target) target.classList.add('active');
     }
 
     function closeModal(modalId) {
-        document.getElementById(modalId).classList.remove('active');
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
         const btn = document.getElementById('faceScanBtn');
         if (btn) {
             btn.disabled = false;
             btn.textContent = '🔍 Scan & Login';
         }
         isLoginProcessing = false;
+        consecutiveSpoofCount = 0;
+        consecutiveUnregisteredCount = 0;
     }
 
     function retryFaceScanAfterModal() {

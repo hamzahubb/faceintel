@@ -857,8 +857,8 @@
                 if (!res.ok) throw new Error(data.error || "Connection failed");
 
                 status.className = "phone-status ok";
-                status.textContent = "✅ Mobile camera connected! Reloading page…";
-                setTimeout(() => location.reload(), 1200);
+                status.textContent = "✅ Mobile camera connected successfully!";
+                await loadCameras();
             } catch (err) {
                 status.className = "phone-status err";
                 status.textContent = "⚠️ " + err.message;

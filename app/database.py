@@ -87,9 +87,22 @@ def init_tables():
                 expression VARCHAR(50) NOT NULL,
                 confidence FLOAT NOT NULL,
                 log_date DATE NOT NULL,
-                log_time TIME NOT NULL
+                log_time TIME NOT NULL,
+                spoof_score FLOAT DEFAULT NULL,
+                anti_spoof_method VARCHAR(50) DEFAULT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
+
+        # Migration: add anti-spoof columns if they don't exist yet
+        for col_def in [
+            "spoof_score FLOAT DEFAULT NULL",
+            "anti_spoof_method VARCHAR(50) DEFAULT NULL",
+        ]:
+            col_name = col_def.split()[0]
+            try:
+                cursor.execute(f"ALTER TABLE recognition_logs ADD COLUMN {col_def}")
+            except Exception:
+                pass  # Column already exists
 
         # Attendance table — one row per employee per day
         cursor.execute("""

@@ -287,13 +287,25 @@ def process_frame():
             # Crop face for embedding
             face_crop = crop_face(frame, face_data["bounding_box"])
 
-            # Liveness Check (anti-spoofing)
+            # Dual-Model Anti-Spoofing Gate (runs BEFORE ArcFace to save compute)
+            from utils.anti_spoofing import get_anti_spoof_engine
             from liveness import check_liveness, check_3d_depth_liveness
-            is_3d_real = check_3d_depth_liveness(face_data.get("landmarks", []))
+            anti_spoof = get_anti_spoof_engine()
+            spoof_check = anti_spoof.check(
+                face_crop=face_crop,
+                landmarks=face_data.get("landmarks", []),
+                blendshapes=face_data.get("blendshapes", {}),
+                bbox=face_data.get("bounding_box"),
+                full_frame=frame,
+            )
+
+            # Standard liveness (blink + texture) as secondary check
             liveness_res = check_liveness(track.blink_tracker, face_data["blendshapes"], face_crop)
             is_live = liveness_res["is_live"]
             liveness_status = liveness_res["status"]
-            if not is_3d_real:
+
+            # If dual-model flags spoof, override liveness
+            if spoof_check["is_spoof"]:
                 liveness_status = "SPOOF"
                 is_live = False
 
@@ -1102,6 +1114,25 @@ def resolve_camera_source(url):
     return path, True
 
 
+def _grab_http_frame(url):
+    """Fallback frame reader for HTTP/IP Webcam streams via urllib."""
+    import urllib.request
+    try:
+        shot_url = url
+        if "/video" in url:
+            shot_url = url.replace("/video", "/shot.jpg")
+        elif not url.endswith((".jpg", ".mjpg", ".png")):
+            shot_url = url.rstrip("/") + "/shot.jpg"
+
+        req = urllib.request.Request(shot_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            buf = np.frombuffer(resp.read(), np.uint8)
+            img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+            return img
+    except Exception:
+        return None
+
+
 def mjpeg_stream(url):
     """
     Relay frames from a camera source as an MJPEG multipart stream.
@@ -1110,21 +1141,42 @@ def mjpeg_stream(url):
     paced at their native FPS.
     """
     source, is_file = resolve_camera_source(url)
-    cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
+    is_http = isinstance(source, str) and source.lower().startswith(("http://", "https://"))
+
+    if is_http:
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;3000000"
+
+    cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG if is_http else cv2.CAP_ANY)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     frame_delay = 0.05  # ~20 fps cap for network streams
     if is_file:
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
         frame_delay = 1.0 / max(fps, 1)
     try:
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
+        consecutive_failures = 0
+        while True:
+            frame = None
+            if cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    frame = None
+
+            # Fallback to urllib for HTTP/IP Webcam if OpenCV stream fails
+            if frame is None and is_http:
+                frame = _grab_http_frame(source)
+
+            if frame is None:
                 if is_file:
-                    # Loop the video file like a continuous camera
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
-                break
+                consecutive_failures += 1
+                if consecutive_failures > 10:
+                    break
+                time.sleep(0.2)
+                continue
+
+            consecutive_failures = 0
+
             # Downscale large frames to keep bandwidth reasonable
             h, w = frame.shape[:2]
             if w > 960:
@@ -1260,6 +1312,11 @@ def api_camera_detect(camera_id):
     persons = []  # each: {"crop", "embedding", "area"}
     for frame in frames:
         for crop in _detect_face_crops(frame):
+            # Anti-spoof check before expensive ArcFace embedding
+            from utils.anti_spoofing import get_anti_spoof_engine
+            spoof_check = get_anti_spoof_engine().check(crop, [], {})
+            if spoof_check["is_spoof"]:
+                continue  # Skip spoofed faces
             embedding = get_embedding(crop)
             if embedding is None:
                 continue
@@ -1334,18 +1391,27 @@ def api_set_phone_camera():
             ip = f"{ip}:8080"
         url = f"http://{ip}/video"
 
-    # Quick reachability test (IP Webcam responds with a multipart stream)
-    try:
-        req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            content_type = resp.headers.get("Content-Type", "")
-            if resp.status != 200:
-                return jsonify({"error": f"Camera responded with HTTP {resp.status}."}), 502
-            if "multipart" not in content_type and "video" not in content_type and "image" not in content_type:
-                return jsonify({"error": f"URL responded but is not a video stream (Content-Type: {content_type})."}), 502
-    except Exception as e:
+    # Quick reachability test (IP Webcam responds on /video, /shot.jpg, or /)
+    connected = False
+    last_err = None
+    test_urls = [url]
+    if "/video" in url:
+        test_urls.append(url.replace("/video", "/shot.jpg"))
+        test_urls.append(url.replace("/video", "/"))
+
+    for t_url in test_urls:
+        try:
+            req = urllib.request.Request(t_url, headers={"User-Agent": "Mozilla/5.0"}, method="GET")
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                if resp.status == 200:
+                    connected = True
+                    break
+        except Exception as e:
+            last_err = e
+
+    if not connected:
         return jsonify({
-            "error": f"Could not connect to the phone camera ({e.__class__.__name__}). "
+            "error": f"Could not connect to the phone camera ({last_err.__class__.__name__ if last_err else 'Timeout'}). "
                      "Check that: phone and PC are on the same WiFi, 'Start Server' is pressed in the IP Webcam app, and the IP is correct."
         }), 502
 

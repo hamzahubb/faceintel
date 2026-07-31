@@ -45,7 +45,7 @@
     {
       "id": "cam-phone",
       "name": "Mobile Camera (IP Webcam)",
-      "url": "http://192.168.18.92:8080/video",
+      "url": "http://192.168.18.52:8080/video",
       "enabled": true
     },
     {

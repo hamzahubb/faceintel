@@ -4,6 +4,7 @@ Protects all existing routes via before_app_request hook.
 """
 
 import base64
+import time
 import numpy as np
 import cv2
 from functools import wraps
@@ -15,18 +16,55 @@ from database import (
     get_all_users_with_embedding, get_all_employees, save_employee
 )
 from recognizer import get_embedding, cosine_similarity
-from liveness import check_texture, check_3d_depth_liveness, check_screen_spoof
+from utils import liveness_pipeline as liveness
 
 auth_bp = Blueprint("auth", __name__)
 
-# Cosine similarity threshold for face login matching (0.60 ensures strangers are NEVER accepted)
-FACE_LOGIN_THRESHOLD = 0.60
+# Cosine similarity threshold for face login matching.
+FACE_LOGIN_THRESHOLD = 0.48
+
+# Below this, the face is confidently nobody on file -> genuine unregistered
+# person. Between this and FACE_LOGIN_THRESHOLD the face partially matches an
+# enrolled identity, which is what a screen replay of that person looks like.
+# Measured: true strangers peak at 0.43 and mostly sit under 0.32, while genuine
+# live matches start at 0.638 — so this band belongs to degraded replays.
+PARTIAL_MATCH_FLOOR = 0.35
+
+# Consecutive frames a registered identity must hold before login is granted.
+MATCH_STREAK_REQUIRED = 2
+
+# Per-client identity-match streaks. All liveness state lives in the liveness
+# pipeline; this tracks recognition only, keeping the two concerns separate.
+_match_state = {}
 
 
-def _detect_and_get_embedding(img: np.ndarray):
-    """Detect face, crop region, extract 512-d ArcFace embedding, and return (embedding, bbox, blendshapes, landmarks)."""
+def _match_streak(client_key: str, score: float) -> int:
+    """Count consecutive frames this client has matched an identity."""
+    st = _match_state.setdefault(client_key, {"streak": 0, "scores": []})
+    st["scores"] = (st["scores"] + [score])[-4:]
+    # A wobbling score means the match has not settled; make it start over.
+    if len(st["scores"]) >= 3 and float(np.std(st["scores"][-3:])) > 0.15:
+        st["streak"] = 0
+    else:
+        st["streak"] += 1
+    return st["streak"]
+
+
+def _reset_match_state(client_key: str):
+    _match_state.pop(client_key, None)
+
+
+def _detect_face(img: np.ndarray):
+    """
+    STAGE 1 — face detection only.
+
+    Deliberately does NOT extract an embedding. Recognition is a separate stage
+    that must not run until the liveness pipeline has cleared the frame.
+
+    Returns {"bbox", "face_crop", "blendshapes", "landmarks"} or None.
+    """
     if img is None or img.size == 0:
-        return None, None, {}, []
+        return None
 
     bbox = None
     face_crop = None
@@ -70,10 +108,68 @@ def _detect_and_get_embedding(img: np.ndarray):
         face_crop = img[max(0, cy - min_dim//2):min(h, cy + min_dim//2), max(0, cx - min_dim//2):min(w, cx + min_dim//2)]
 
     if face_crop is not None and face_crop.size > 0:
-        emb = get_embedding(face_crop)
-        return emb, bbox, blendshapes, landmarks
+        return {"bbox": bbox, "face_crop": face_crop,
+                "blendshapes": blendshapes, "landmarks": landmarks}
 
-    return None, None, {}, []
+    return None
+
+
+def _recognise(face_crop: np.ndarray):
+    """
+    STAGE 3 — identity matching.
+
+    Only ever called on a frame the liveness pipeline has ruled LIVE.
+    Returns (full_name, user_id, username, score).
+    """
+    embedding = get_embedding(face_crop)
+    if embedding is None:
+        return None, None, None, 0.0
+
+    best_name = best_id = best_username = None
+    best_score = 0.0
+
+    for emp in get_all_employees():
+        if not emp.get("embedding"):
+            continue
+        try:
+            stored = np.frombuffer(emp["embedding"], dtype=np.float32)
+            if stored.shape[0] != 512:
+                continue
+            score = cosine_similarity(embedding, stored)
+            if score > best_score:
+                best_score = score
+                best_name = emp["full_name"]
+                best_id = f"emp_{emp['employee_id']}"
+                best_username = emp["employee_id"]
+        except Exception as e:
+            print(f"[Auth] Error comparing employee {emp.get('employee_id')}: {e}")
+
+    for u in get_all_users_with_embedding():
+        if not u.get("face_embedding"):
+            continue
+        try:
+            stored = np.frombuffer(u["face_embedding"], dtype=np.float32)
+            if stored.shape[0] != 512:
+                continue
+            score = cosine_similarity(embedding, stored)
+            if score > best_score:
+                best_score = score
+                best_name = u["full_name"]
+                best_id = u["id"]
+                best_username = u["username"]
+        except Exception as e:
+            print(f"[Auth] Error comparing user {u.get('username')}: {e}")
+
+    return best_name, best_id, best_username, best_score
+
+
+def _detect_and_get_embedding(img: np.ndarray):
+    """Back-compat shim for signup, which has no liveness requirement."""
+    det = _detect_face(img)
+    if det is None:
+        return None, None, {}, []
+    return (get_embedding(det["face_crop"]), det["bbox"],
+            det["blendshapes"], det["landmarks"])
 
 
 # ──────────────────────────────────────────────────────────────
@@ -221,329 +317,184 @@ def api_login():
 
 @auth_bp.route("/api/auth/face_login", methods=["POST"])
 def api_face_login():
-    """Authenticate using webcam face recognition with multi-layer anti-spoofing."""
+    """
+    Face login — a single deterministic pipeline.
+
+        Face Detection
+              |
+        Liveness / Spoof Verification      <- gatekeeper, no identity involved
+              |
+        SPOOF  -> stop, spoof modal, recognition never runs
+        PENDING-> keep watching
+        LIVE   -> Face Recognition
+                    |
+              registered -> log in
+              unknown    -> unregistered modal
+
+    Exactly one modal can result from a frame: the branches are mutually
+    exclusive by construction, not by precedence patching.
+    """
     data = request.get_json()
     if not data or not data.get("image"):
         return jsonify({"error": "No image provided"}), 400
 
     try:
-        import time
-        import app as main_app
-
         img_b64 = data["image"].split(",")[-1]
-        img_data = base64.b64decode(img_b64)
-        img_array = np.frombuffer(img_data, dtype=np.uint8)
+        img_array = np.frombuffer(base64.b64decode(img_b64), dtype=np.uint8)
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-
         if img is None:
             return jsonify({"error": "Invalid image data"}), 400
 
-        # Extract face embedding, bbox, blendshapes, landmarks
-        embedding, bbox, blendshapes, landmarks = _detect_and_get_embedding(img)
-        if embedding is None:
+        client_key = request.remote_addr or "unknown"
+
+        # ── STAGE 1: Face detection ───────────────────────────────
+        det = _detect_face(img)
+        if det is None:
             return jsonify({
-                "success": False,
-                "face_detected": False,
+                "success": False, "face_detected": False,
                 "error": "No face detected in camera view.",
             }), 400
 
-        face_crop = main_app.crop_face(img, bbox)
-        if face_crop is None or face_crop.shape[0] < 45 or face_crop.shape[1] < 45:
+        bbox = det["bbox"]
+        face_crop = det["face_crop"]
+
+        if face_crop.shape[0] < 45 or face_crop.shape[1] < 45:
             return jsonify({
-                "success": False,
-                "face_detected": False,
+                "success": False, "face_detected": False,
                 "error": "Face region too small.",
             }), 200
 
-        # Ignore dark camera warmup frames during initial camera activation
-        gray_face = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
-        if float(np.mean(gray_face)) < 18.0:
+        # Ignore dark camera-warmup frames before judging anything
+        if float(np.mean(cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY))) < 18.0:
             return jsonify({
-                "success": False,
-                "face_detected": False,
+                "success": False, "face_detected": False,
                 "error": "Camera stream warming up...",
             }), 200
 
-        now_ts = time.time()
+        # ── STAGE 2: Liveness / spoof verification ────────────────
+        # The gatekeeper. Knows nothing about identity.
+        verdict = liveness.evaluate(
+            client_key=client_key,
+            frame=img,
+            bbox=bbox,
+            face_crop=face_crop,
+            blendshapes=det["blendshapes"],
+            landmarks=det["landmarks"],
+        )
+        print(f"[Auth] Liveness verdict: {verdict.state} - {verdict.reason}", flush=True)
 
-        # ──────────────────────────────────────────────────────────
-        # LAYER 1: 3D Depth Liveness (flat screens have no depth)
-        # ──────────────────────────────────────────────────────────
-        if landmarks and len(landmarks) >= 10:
-            zs = [pt[2] for pt in landmarks]
-            z_std = float(np.std(zs))
-            z_range = float(max(zs) - min(zs))
-            print(f"[Auth L1] 3D Depth: z_std={z_std:.6f} z_range={z_range:.6f}", flush=True)
-            # Phone screens produce flattened 3D: z_std typically < 0.003
-            # Real faces produce z_std typically > 0.008
-            if z_std < 0.004:
-                print(f"[Auth L1] BLOCKED — Flat screen/photo detected (z_std={z_std:.6f})", flush=True)
-                return jsonify({
-                    "success": False, "face_detected": True, "bbox": bbox,
-                    "reason": "spoof",
-                    "error": "⚠️ Spoof detected — Flat screen or printed photo rejected.",
-                    "confidence": 0.0
-                }), 200
-
-        # ──────────────────────────────────────────────────────────
-        # LAYER 2: Screen Spoof Detection (Moiré, glare)
-        # ──────────────────────────────────────────────────────────
-        if face_crop is not None:
-            screen_spoof_res = check_screen_spoof(face_crop)
-            print(f"[Auth L2] Screen: fft={screen_spoof_res.get('fft_score', 0):.4f} glare={screen_spoof_res.get('glare_ratio', 0):.4f}", flush=True)
-            if screen_spoof_res["is_spoof"]:
-                print(f"[Auth L2] BLOCKED — {screen_spoof_res['reason']}", flush=True)
-                return jsonify({
-                    "success": False, "face_detected": True, "bbox": bbox,
-                    "reason": "spoof",
-                    "error": f"⚠️ Spoof detected — {screen_spoof_res['reason']}.",
-                    "confidence": 0.0
-                }), 200
-
-        # ──────────────────────────────────────────────────────────
-        # LAYER 3: Texture Analysis (LBP + Laplacian)
-        # ──────────────────────────────────────────────────────────
-        if face_crop is not None:
-            texture_res = check_texture(face_crop)
-            print(f"[Auth L3] Texture: lap={texture_res['laplacian_var']:.2f} lbp={texture_res['lbp_var']:.4f} glare={texture_res['glare_ratio']:.4f} pass={texture_res['texture_pass']}", flush=True)
-            if not texture_res["texture_pass"]:
-                print(f"[Auth L3] BLOCKED — Texture analysis failed (screen/photo texture)", flush=True)
-                return jsonify({
-                    "success": False, "face_detected": True, "bbox": bbox,
-                    "reason": "spoof",
-                    "error": "⚠️ Spoof detected — Abnormal face texture (screen or photo).",
-                    "confidence": 0.0
-                }), 200
-
-        # ──────────────────────────────────────────────────────────
-        # LAYER 4: Server-Side Anti-Spoof Cache + Temporal Analysis
-        # Tracks per-client frame data WITHOUT touching session cookie.
-        # ──────────────────────────────────────────────────────────
-        import sys
-        client_key = request.remote_addr or "unknown"
-        if not hasattr(api_face_login, '_spoof_cache'):
-            api_face_login._spoof_cache = {}
-        scache = api_face_login._spoof_cache
-
-        # Initialize or retrieve client cache entry
-        if client_key not in scache or (now_ts - scache[client_key].get("last_ts", 0)) > 30:
-            scache[client_key] = {"skin_ratios": [], "scores": [], "pass_streak": 0, "last_ts": now_ts}
-        cdata = scache[client_key]
-        cdata["last_ts"] = now_ts
-
-        # ──────────────────────────────────────────────────────────
-        # LAYER 5: Mandatory Live Eye-Blink (Rolling 4-Second Window)
-        # ──────────────────────────────────────────────────────────
-        blink_left = blendshapes.get("eyeBlinkLeft", 0.0)
-        blink_right = blendshapes.get("eyeBlinkRight", 0.0)
-        max_blink = max(blink_left, blink_right)
-
-        eye_was_closed = session.get("face_eye_closed", False)
-        last_blink_time = session.get("last_blink_time", 0.0)
-
-        # Dynamic blink transition: open -> closed (>= 0.22) -> open (<= 0.12)
-        if not eye_was_closed and max_blink >= 0.22:
-            session["face_eye_closed"] = True
-        elif eye_was_closed and max_blink <= 0.12:
-            session["face_eye_closed"] = False
-            session["last_blink_time"] = now_ts
-            last_blink_time = now_ts
-            print(f"[Auth L5] Live blink transition verified at t={now_ts:.2f}", flush=True)
-
-        has_fresh_blink = (now_ts - last_blink_time) <= 4.0
-        print(f"[Auth L5] Blink: max_blink={max_blink:.3f} eye_closed={eye_was_closed} last_blink={last_blink_time:.1f} has_fresh={has_fresh_blink}", flush=True)
-
-        if not has_fresh_blink:
-            cdata["pass_streak"] = 0  # Reset streak on blink wait
+        # SPOOF -> stop here. Recognition is never invoked, so the unregistered
+        # modal is structurally unreachable for a spoof.
+        if verdict.is_spoof:
+            _reset_match_state(client_key)
             return jsonify({
                 "success": False, "face_detected": True, "bbox": bbox,
-                "reason": "blink_required", "blink_required": True,
-                "error": "👁️ Real live face required — Please blink your eyes to verify liveness.",
-                "confidence": 0.0
+                "reason": "spoof",
+                "error": f"⚠️ Spoof detected — {verdict.reason}.",
+                "confidence": 0.0,
             }), 200
 
-        # ──────────────────────────────────────────────────────────
-        # LAYER 6: Skin Chrominance + HSV Color Analysis
-        # Phone screens emit unnatural RGB light; real skin has
-        # consistent YCrCb chrominance. Track over multiple frames.
-        # ──────────────────────────────────────────────────────────
-        skin_ratio = 1.0
-        frame_is_suspect = False
-        if face_crop is not None:
-            from liveness import _compute_skin_chroma_score
-            skin_pass, skin_ratio = _compute_skin_chroma_score(face_crop)
-            print(f"[Auth L6] Skin Chroma: ratio={skin_ratio:.4f} pass={skin_pass}", flush=True)
-
-            # Also check HSV: screens produce higher value (V) and lower saturation (S) variance
-            hsv = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
-            sat_mean = float(np.mean(hsv[:, :, 1]))
-            val_mean = float(np.mean(hsv[:, :, 2]))
-            # Screen light tends to have very high brightness + low saturation
-            screen_like = (val_mean > 200 and sat_mean < 40)
-            print(f"[Auth L6] HSV: sat_mean={sat_mean:.1f} val_mean={val_mean:.1f} screen_like={screen_like}", flush=True)
-
-            if not skin_pass or screen_like:
-                frame_is_suspect = True
-
-            # Track skin ratios for consistency analysis
-            cdata["skin_ratios"].append(skin_ratio)
-            if len(cdata["skin_ratios"]) > 8:
-                cdata["skin_ratios"] = cdata["skin_ratios"][-8:]
-
-            # Detect oscillating skin ratio (phone video signature)
-            # Real faces have stable skin ratio (std < 0.08), phone videos oscillate wildly
-            if len(cdata["skin_ratios"]) >= 4:
-                ratio_std = float(np.std(cdata["skin_ratios"][-4:]))
-                ratio_min = float(min(cdata["skin_ratios"][-4:]))
-                print(f"[Auth L6] Skin stability: std={ratio_std:.4f} min={ratio_min:.4f} (last 4 frames)", flush=True)
-                # If skin ratio oscillated heavily OR any recent frame had very low skin
-                if ratio_std > 0.15 or ratio_min < 0.15:
-                    print(f"[Auth L6] SUSPECT — Unstable skin chrominance (phone video pattern)", flush=True)
-                    frame_is_suspect = True
-
-        # ──────────────────────────────────────────────────────────
-        # FACE MATCHING — Compare against all registered identities
-        # ──────────────────────────────────────────────────────────
-        best_match_name = None
-        best_user_id = None
-        best_username = None
-        best_score = 0.0
-
-        # 1. Compare against registered employees table (from /register page)
-        employees = get_all_employees()
-        for emp in employees:
-            if emp.get("embedding"):
-                try:
-                    stored = np.frombuffer(emp["embedding"], dtype=np.float32)
-                    if stored.shape[0] == 512:
-                        score = cosine_similarity(embedding, stored)
-                        if score > best_score:
-                            best_score = score
-                            best_match_name = emp["full_name"]
-                            best_user_id = f"emp_{emp['employee_id']}"
-                            best_username = emp["employee_id"]
-                except Exception as e:
-                    print(f"[Auth] Error comparing employee {emp.get('employee_id')}: {e}")
-
-        # 2. Compare against registered user accounts (from /login signup page)
-        users = get_all_users_with_embedding()
-        for u in users:
-            if u.get("face_embedding"):
-                try:
-                    stored = np.frombuffer(u["face_embedding"], dtype=np.float32)
-                    if stored.shape[0] == 512:
-                        score = cosine_similarity(embedding, stored)
-                        if score > best_score:
-                            best_score = score
-                            best_match_name = u["full_name"]
-                            best_user_id = u["id"]
-                            best_username = u["username"]
-                except Exception as e:
-                    print(f"[Auth] Error comparing user {u.get('username')}: {e}")
-
-        print(f"[Auth Match] Best: name={best_match_name} score={best_score:.4f} threshold={FACE_LOGIN_THRESHOLD}", flush=True)
-
-        # ──────────────────────────────────────────────────────────
-        # LAYER 7: Multi-Frame Consistency Voting
-        # Real faces produce stable scores; phone videos oscillate.
-        # Must pass 3 consecutive "clean" frames to login.
-        # ──────────────────────────────────────────────────────────
-        if best_match_name and best_score >= FACE_LOGIN_THRESHOLD:
-            # Track match scores for stability analysis
-            cdata["scores"].append(best_score)
-            if len(cdata["scores"]) > 8:
-                cdata["scores"] = cdata["scores"][-8:]
-
-            # Check score stability (phone videos oscillate: 0.25 -> 0.60 -> 0.67)
-            score_unstable = False
-            if len(cdata["scores"]) >= 3:
-                recent_scores = cdata["scores"][-3:]
-                score_std = float(np.std(recent_scores))
-                score_min = float(min(recent_scores))
-                print(f"[Auth L7] Score stability: std={score_std:.4f} min={score_min:.4f} streak={cdata['pass_streak']}", flush=True)
-                # Real face: stable high scores (std < 0.05). Phone video: wild swings
-                if score_std > 0.08 or score_min < FACE_LOGIN_THRESHOLD:
-                    score_unstable = True
-
-            # Update pass streak
-            if frame_is_suspect or score_unstable:
-                cdata["pass_streak"] = 0
-                reason_text = []
-                if frame_is_suspect:
-                    reason_text.append("skin chrominance anomaly")
-                if score_unstable:
-                    reason_text.append("unstable match score")
-                print(f"[Auth L7] STREAK RESET — {', '.join(reason_text)}", flush=True)
-                return jsonify({
-                    "success": False, "face_detected": True, "bbox": bbox,
-                    "reason": "spoof",
-                    "error": f"⚠️ Spoof detected — {', '.join(reason_text)}.",
-                    "confidence": round(best_score * 100, 1),
-                }), 200
+        # PENDING -> gathering evidence; no identity decision yet.
+        # Report what is actually being waited on rather than always asking for
+        # a blink, which is misleading while frames are still being collected.
+        if verdict.is_pending:
+            if verdict.detail.get("needed"):
+                msg = "🔒 Verifying liveness — hold still..."
+            elif "blink" in verdict.reason.lower():
+                msg = "👁️ Please blink naturally to confirm you are live."
             else:
-                cdata["pass_streak"] += 1
-                print(f"[Auth L7] Pass streak: {cdata['pass_streak']}/3", flush=True)
-
-            # Require 3 consecutive clean frames before granting login
-            if cdata["pass_streak"] >= 3:
-                # SUCCESS — all checks passed consistently!
-                cdata["pass_streak"] = 0
-                cdata["scores"] = []
-                cdata["skin_ratios"] = []
-
-                session.pop("face_eye_closed", None)
-                session.pop("face_blink_count", None)
-
-                session["user_id"] = best_user_id
-                session["username"] = best_username
-                session["full_name"] = best_match_name
-                return jsonify({
-                    "success": True,
-                    "face_detected": True,
-                    "bbox": bbox,
-                    "employee_name": best_match_name,
-                    "message": f"Welcome back, {best_match_name}!",
-                    "confidence": round(best_score * 100, 1),
-                })
-            else:
-                # Still accumulating consistent frames
-                return jsonify({
-                    "success": False, "face_detected": True, "bbox": bbox,
-                    "reason": "verifying",
-                    "error": f"🔒 Verifying identity... ({cdata['pass_streak']}/3 frames consistent)",
-                    "confidence": round(best_score * 100, 1),
-                }), 200
-        else:
-            cdata["pass_streak"] = 0
-            cdata["scores"] = []
-            
-            # Since the face passed Layer 1 (3D depth), Layer 2 (Screen spoof), Layer 3 (Texture), and Layer 6 (Skin Chroma),
-            # it is 100% a REAL LIVE HUMAN FACE who is simply NOT registered in the database (score < threshold).
-            reason = "unregistered"
-            error_msg = f"Face detected, but unregistered ({round(best_score*100, 1)}% match)."
-
-            print(f"[Auth Match] Unregistered live face detected ({round(best_score*100, 1)}% match)", flush=True)
-
+                msg = "🔒 Liveness inconclusive — move into better light and hold still."
             return jsonify({
-                "success": False,
-                "face_detected": True,
-                "bbox": bbox,
-                "reason": reason,
-                "error": error_msg,
-                "confidence": round(best_score * 100, 1),
+                "success": False, "face_detected": True, "bbox": bbox,
+                "reason": "blink_required",
+                "error": msg,
+                "confidence": 0.0,
             }), 200
+
+        # ── STAGE 3: Face recognition (LIVE frames only) ──────────
+        name, user_id, username, score = _recognise(face_crop)
+        print(f"[Auth] Recognition: name={name} score={score:.4f} "
+              f"threshold={FACE_LOGIN_THRESHOLD}", flush=True)
+
+        # ── STAGE 4: Decision ─────────────────────────────────────
+        # Three outcomes, mutually exclusive by score band.
+        #
+        # Measured on this dataset (scratch/match_distributions.py), after
+        # excluding two duplicate enrollments that were inflating the tail:
+        #     genuine live match   p5   = 0.638   -> logs in
+        #     true stranger        max  = 0.43, typically < 0.32
+        #     a replay of an enrolled user degrades into the band between
+        #
+        # So a score in [PARTIAL_MATCH_FLOOR, FACE_LOGIN_THRESHOLD) is too high
+        # to be a stranger and too low to be a live enrolled user — it is the
+        # signature of an enrolled face arriving through a screen. Reporting
+        # that as "Unregistered Person" is wrong and is what caused the two
+        # modals to overlap. It is treated as a spoof instead.
+        if not name or score < PARTIAL_MATCH_FLOOR:
+            # Confidently nobody on file: a genuine unregistered person.
+            _reset_match_state(client_key)
+            return jsonify({
+                "success": False, "face_detected": True, "bbox": bbox,
+                "reason": "unregistered",
+                "error": f"Face detected, but unregistered ({round(score * 100, 1)}% match).",
+                "confidence": round(score * 100, 1),
+            }), 200
+
+        if score < FACE_LOGIN_THRESHOLD:
+            # Partial match to an enrolled identity — degraded, as a screen
+            # replay degrades it. Never the unregistered modal.
+            _reset_match_state(client_key)
+            liveness.flag_partial_match(client_key)
+            print(f"[Auth] Partial match {score:.3f} to '{name}' — treating as replay, "
+                  f"not unregistered", flush=True)
+            return jsonify({
+                "success": False, "face_detected": True, "bbox": bbox,
+                "reason": "spoof",
+                "error": "⚠️ Spoof detected — Face matches an enrolled user only "
+                         "partially, consistent with a screen replay.",
+                "confidence": 0.0,
+            }), 200
+
+        # Registered. Require a couple of consistent frames so a borderline
+        # match cannot log in off a single lucky frame.
+        streak = _match_streak(client_key, score)
+        if streak < MATCH_STREAK_REQUIRED:
+            return jsonify({
+                "success": False, "face_detected": True, "bbox": bbox,
+                "reason": "verifying",
+                "error": f"🔒 Verifying identity... ({streak}/{MATCH_STREAK_REQUIRED})",
+                "confidence": round(score * 100, 1),
+            }), 200
+
+        _reset_match_state(client_key)
+        liveness.clear_client(client_key)   # full drop: this login succeeded
+
+        session["user_id"] = user_id
+        session["username"] = username
+        session["full_name"] = name
+        return jsonify({
+            "success": True,
+            "face_detected": True,
+            "bbox": bbox,
+            "employee_name": name,
+            "message": f"Welcome back, {name}!",
+            "confidence": round(score * 100, 1),
+        })
 
     except Exception as e:
+        import traceback
         print(f"[Auth] Face login error: {e}", flush=True)
+        traceback.print_exc()
         return jsonify({"error": "Face login processing failed."}), 500
+
 
 
 @auth_bp.route("/api/auth/reset_face_session", methods=["POST"])
 def api_reset_face_session():
-    """Reset all anti-spoofing and blink session state when starting face login."""
-    session["face_eye_closed"] = False
-    session["face_blink_count"] = 0
-    session["last_blink_time"] = 0.0
+    """Clear all per-client liveness and recognition state for a fresh attempt."""
+    client_key = request.remote_addr or "unknown"
+    liveness.reset_client(client_key)
+    _reset_match_state(client_key)
     return jsonify({"success": True})
 
 

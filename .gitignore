@@ -42,3 +42,7 @@ app/dataset/
 
 # Demo videos (too large for GitHub)
 app/demo_videos/
+
+# Anti-spoof calibration captures (contain face imagery)
+app/calibration_samples/
+app/scratch/
