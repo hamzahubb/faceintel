@@ -1,8 +1,8 @@
-# 🧠 Infigo FaceIntel
+# 🧠 FaceIntel
 
 **Enterprise AI-Powered Face Recognition, Attendance Management & Real-Time CCTV Surveillance System**
 
-Infigo FaceIntel is a high-performance, 100% local computer vision web application for automated attendance tracking, multi-camera live CCTV surveillance, emotion analysis, and stranger registration. Built with Flask, OpenCV, MediaPipe, and ONNX Runtime ArcFace embeddings.
+FaceIntel is a high-performance, 100% local computer vision web application for automated attendance tracking, multi-camera live CCTV surveillance, emotion analysis, and stranger registration. Built with Flask, OpenCV, MediaPipe, and ONNX Runtime ArcFace embeddings.
 
 ---
 
